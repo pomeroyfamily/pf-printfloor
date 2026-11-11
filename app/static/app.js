@@ -1253,11 +1253,12 @@ function renderPlugsDlg() {
   const g = state.govee;
   const box = $("#plugsBody");
   if (!g?.linked) {
-    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (person tab, gear icon, Apply for API Key); Govee emails it to you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">Step-by-step guide</a></p>
+    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (person tab, gear icon, Apply for API Key); Govee emails it to you.</p>
       <form id="goveeForm" novalidate><label class="field"><span>Govee API key</span><input name="key" type="password" autocomplete="off" required></label>
       <p class="form-error" id="goveeError" role="alert"></p>
       <div class="row-actions"><button class="btn primary" type="submit">Link Govee account</button></div></form>
-      <p class="note">The key is stored on the dashboard server only and never shown again.</p>`;
+      <p class="note">The key is stored on the dashboard server only and never shown again.</p>
+      ${goveeHelp("Step-by-step setup guide")}`;
     return;
   }
   const u = g.usage || {};
@@ -1275,7 +1276,7 @@ function renderPlugsDlg() {
   const printers = [...state.printers].sort((a, b) => a.name.localeCompare(b.name));
   const sel = (x) => `<select data-assign-plug="${esc(x.device)}" aria-label="Printer on plug ${esc(x.name)}">
       <option value="">Not used</option>${printers.map((q) => `<option value="${esc(q.id)}" ${chosen(x) === q.id ? "selected" : ""}>${esc(q.name)}</option>`).join("")}</select>`;
-  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Pick the printer each plug powers, then <b>Save</b>. Plugs named like a printer are filled in for you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">How Govee plugs work</a></p>
+  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Pick the printer each plug powers, then <b>Save</b>. Plugs named like a printer are filled in for you.</p>
     ${g.error ? `<p class="note warn">${esc(g.error)}</p>` : ""}
     <table class="usage-table plug-assign"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th><th title="Optional: power cycle the printer once a day">Daily power cycle</th></tr></thead><tbody>
     ${g.plugs.map((x) => {
@@ -1290,8 +1291,13 @@ function renderPlugsDlg() {
     <p class="note">Daily power cycle (optional): the plug turns off for 15 seconds, then back on, once a day. New ones start at <b>6:00 AM</b>, only after the printer has been finished or idle for <b>30 minutes</b>, is cool and has printed since the last cycle. Change the time and the idle minutes for each printer in its <b>Details → Power</b>. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md#5-optional-daily-power-cycle" target="_blank" rel="noopener">How it works</a></p>
     <p class="form-error" id="plugAssignError" role="alert">${dup ? `${esc(state.printers.find((q) => q.id === dup)?.name || "A printer")} is picked for two plugs.` : ""}</p>
     <div class="row-actions"><button class="btn primary" type="button" data-assign-save ${changed.length && !dup ? "" : "disabled"}>${changed.length ? `Save ${changed.length} change${changed.length === 1 ? "" : "s"}` : "Saved"}</button></div>
-    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. A plug's state is checked every 5 minutes while its printer is offline${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
-    <div class="row-actions" style="margin-top:12px"><button class="btn danger${state.govArm ? " armed" : ""}" type="button" data-govee-unlink>${state.govArm ? "Click again to unlink" : "Unlink Govee"}</button></div>`;
+    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. A plug is checked every 5 minutes while its printer is offline, every 30 minutes while it's online, and when you open this window${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
+    <div class="row-actions" style="margin-top:12px"><button class="btn danger${state.govArm ? " armed" : ""}" type="button" data-govee-unlink>${state.govArm ? "Click again to unlink" : "Unlink Govee"}</button></div>
+    ${goveeHelp("Govee plug guide")}`;
+}
+function goveeHelp(text) {
+  return `<p class="note help-foot">Setup, daily power cycle and troubleshooting:
+    <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">${esc(text)}</a></p>`;
 }
 async function savePlugAssignments() {
   const g = state.govee, draft = state.plugDraft || {};
@@ -1634,7 +1640,9 @@ function renderDetails() {
       <h3>Remove</h3>
       <p class="note" style="margin-bottom:8px">Stops watching this printer and removes its card. Nothing on the printer changes.</p>
       <button class="btn danger${armed ? " armed" : ""}" type="button" id="removeBtn">${armed ? `Click again to remove ${esc(p.name)}` : `Remove ${esc(p.name)}`}</button>
-    </section>`;
+    </section>
+    ${printerDocs(p.driver) ? `<p class="note help-foot">Camera, quirks and what this printer can report:
+      <a href="${esc(printerDocs(p.driver))}" target="_blank" rel="noopener">${esc(p.maker)} notes</a></p>` : ""}`;
   const body = $("#detailsBody");
   if (body.dataset.for === p.id && body.childNodes.length) morph(body, html);
   else { body.innerHTML = html; body.dataset.for = p.id; body.scrollTop = 0; }

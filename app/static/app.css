@@ -640,3 +640,5 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 
 .printer-help { margin: -4px 0 12px; }
 .printer-help a { color: var(--printing); font-weight: 600; }
+.help-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.help-foot a { color: var(--printing); font-weight: 600; }
