@@ -845,49 +845,109 @@ function setupFilter() {
   });
 }
 
+state.tagList = [];   // from /api/tags: [{name, count, printers: [ids]}], includes tags no printer has yet
+state.tagOpen = new Set();
+
+async function loadTags() {
+  try { state.tagList = await api("GET", "/api/tags"); } catch { /* keep what we had */ }
+  const typing = document.activeElement?.matches?.("#tagsBody input:not([type=checkbox])");
+  if ($("#tagsDlg").open && !typing) renderTagsDlg();
+}
+
 function allTags() {
   const seen = new Map();
+  for (const t of state.tagList) seen.set(t.name.toLowerCase(), t.name);
   for (const p of state.printers) for (const t of p.tags || []) if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t);
   return [...seen.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
-// ---------------------------------------------------------------- manage tags (rename / delete everywhere)
+// ---------------------------------------------------------------- manage tags (add / rename / delete / which printers)
 function renderTagsDlg(msg = "") {
-  const counts = {};
-  for (const p of state.printers) for (const t of p.tags || []) counts[t.toLowerCase()] = (counts[t.toLowerCase()] || 0) + 1;
+  const has = (p, t) => (p.tags || []).some((x) => x.toLowerCase() === t.toLowerCase());
   const tags = allTags();
-  $("#tagsBody").innerHTML = tags.length ? `
-    <p class="note">Renaming or deleting changes the tag on every printer that has it.</p>
-    <ul class="tag-admin">${tags.map((t) => `
+  const printers = [...state.printers].sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }));
+  $("#tagsBody").innerHTML = `
+    <form class="tag-new" data-newtag>
+      <input name="tag" maxlength="30" placeholder='New tag, e.g. "0.6 nozzle"' aria-label="New tag">
+      <button type="submit" class="btn primary">Add tag</button>
+    </form>
+    ${tags.length ? `
+    <p class="note">Click <b>Printers</b> to choose which printers have a tag. Renaming or deleting changes it on every
+      printer. You can also add tags to one printer in its Details.</p>
+    <ul class="tag-admin">${tags.map((t) => {
+      const n = printers.filter((p) => has(p, t)).length;
+      const open = state.tagOpen.has(t.toLowerCase());
+      return `
       <li data-tag="${esc(t)}">
         <input value="${esc(t)}" maxlength="30" aria-label="Rename ${esc(t)}">
-        <span class="muted">${counts[t.toLowerCase()]} printer${counts[t.toLowerCase()] === 1 ? "" : "s"}</span>
+        <button type="button" class="btn" data-tagprinters aria-expanded="${open}">${n} printer${n === 1 ? "" : "s"} ${open ? "▴" : "▾"}</button>
         <button type="button" class="btn" data-rename>Rename</button>
         <button type="button" class="btn danger${state.tagArmed === t ? " armed" : ""}" data-deltag>${state.tagArmed === t ? "Click again" : "Delete"}</button>
-      </li>`).join("")}</ul>
-    <p class="form-error" role="alert">${esc(msg)}</p>`
-    : `<p class="note">No tags yet. Open a printer's Details and add tags there, e.g. "hardened steel" or "0.6 nozzle".</p>`;
+        ${open ? `<div class="tag-printers">${printers.length ? printers.map((p) => `
+          <label class="check"><input type="checkbox" data-tagpid="${esc(p.id)}"${has(p, t) ? " checked" : ""}> ${esc(p.name || p.model || p.host)}</label>`).join("")
+          : `<span class="muted">No printers yet.</span>`}</div>` : ""}
+      </li>`;
+    }).join("")}</ul>` : `<p class="note">No tags yet. Add one above, then choose which printers have it.</p>`}
+    <p class="form-error" role="alert">${esc(msg)}</p>`;
+}
+
+async function setTagPrinters(name, ids) {
+  state.tagList = state.tagList.filter((t) => t.name.toLowerCase() !== name.toLowerCase());
+  state.tagList.push(await api("PUT", "/api/tags", { name, printers: ids }));
 }
 
 function setupTags() {
-  $("#tagsBtn").addEventListener("click", () => { state.tagArmed = null; renderTagsDlg(); $("#tagsDlg").showModal(); });
+  $("#tagsBtn").addEventListener("click", () => {
+    state.tagArmed = null; state.tagOpen.clear(); renderTagsDlg(); $("#tagsDlg").showModal(); loadTags();
+  });
+  $("#tagsBody").addEventListener("submit", async (e) => {
+    if (!e.target.closest("[data-newtag]")) return;
+    e.preventDefault();
+    const name = e.target.tag.value.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    const known = allTags().find((t) => t.toLowerCase() === name.toLowerCase());
+    if (known) { state.tagOpen.add(known.toLowerCase()); renderTagsDlg(`"${known}" already exists.`); return; }
+    try {
+      await setTagPrinters(name, []);
+      state.tagOpen.add(name.toLowerCase());
+      renderTagsDlg();
+    } catch (err) { renderTagsDlg(err.message); }
+  });
+  $("#tagsBody").addEventListener("change", async (e) => {
+    const box = e.target.closest("[data-tagpid]");
+    if (!box) return;
+    const t = box.closest("li[data-tag]").dataset.tag;
+    const ids = [...box.closest(".tag-printers").querySelectorAll("[data-tagpid]:checked")].map((x) => x.dataset.tagpid);
+    try { await setTagPrinters(t, ids); renderTagsDlg(); } catch (err) { renderTagsDlg(err.message); }
+    $(`#tagsBody li[data-tag="${CSS.escape(t)}"] [data-tagpid="${CSS.escape(box.dataset.tagpid)}"]`)?.focus();
+  });
   $("#tagsBody").addEventListener("click", async (e) => {
     const li = e.target.closest("li[data-tag]");
     if (!li) return;
     const old = li.dataset.tag;
+    if (e.target.closest("[data-tagprinters]")) {
+      const k = old.toLowerCase();
+      state.tagOpen.has(k) ? state.tagOpen.delete(k) : state.tagOpen.add(k);
+      renderTagsDlg();
+    }
     if (e.target.closest("[data-rename]")) {
       const nw = li.querySelector("input").value.trim();
       if (!nw || nw === old) return;
-      try { await api("POST", "/api/tags/retag", { old, new: nw }); } catch (err) { renderTagsDlg(err.message); }
+      try {
+        await api("POST", "/api/tags/retag", { old, new: nw });
+        if (state.tagOpen.delete(old.toLowerCase())) state.tagOpen.add(nw.toLowerCase());
+        await loadTags(); renderTagsDlg();
+      } catch (err) { renderTagsDlg(err.message); }
     }
     if (e.target.closest("[data-deltag]")) {
       if (state.tagArmed !== old) { state.tagArmed = old; renderTagsDlg(); return; }
       state.tagArmed = null;
-      try { await api("POST", "/api/tags/retag", { old, new: null }); } catch (err) { renderTagsDlg(err.message); }
+      try { await api("POST", "/api/tags/retag", { old, new: null }); await loadTags(); renderTagsDlg(); }
+      catch (err) { renderTagsDlg(err.message); }
     }
   });
   $("#tagsBody").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && e.target.closest("li[data-tag] input")) { e.preventDefault(); e.target.closest("li").querySelector("[data-rename]").click(); }
+    if (e.key === "Enter" && e.target.closest("li[data-tag] > input")) { e.preventDefault(); e.target.closest("li").querySelector("[data-rename]").click(); }
   });
 }
 
@@ -2114,7 +2174,7 @@ function connect() {
       if (ev.layout) { state.layout = ev.layout; applyLayout(); }
       state.printers = ev.printers; renderAll();
       if (!$("#addDlg").open) fillLocSelect();
-      if ($("#tagsDlg").open && !(document.activeElement?.tagName === "INPUT" && $("#tagsBody").contains(document.activeElement))) renderTagsDlg();
+      loadTags();
     }
     else if (ev.type === "status") {
       const p = state.printers.find((x) => x.id === ev.id);
@@ -2249,6 +2309,7 @@ setupGroups();
 setupLocs();
 setupLayoutDlg();
 setupTags();
+loadTags();
 setupUsage();
 setupHistory();
 setupPower();

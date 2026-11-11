@@ -93,12 +93,37 @@ def test_tags_per_printer_list_rename_delete(client):
     r = client.patch(f"/api/printers/{a['id']}", json={"tags": ["  Hardened   Steel ", "hardened steel", "0.6 nozzle", ""]})
     assert r.json()["tags"] == ["Hardened Steel", "0.6 nozzle"]                 # trimmed, de-duplicated
     client.patch(f"/api/printers/{b['id']}", json={"tags": ["hardened steel"]})
-    assert client.get("/api/tags").json() == [{"name": "0.6 nozzle", "count": 1}, {"name": "Hardened Steel", "count": 2}]
+    assert [(t["name"], t["count"]) for t in client.get("/api/tags").json()] == [("0.6 nozzle", 1), ("Hardened Steel", 2)]
     assert client.post("/api/tags/retag", json={"old": "HARDENED STEEL", "new": "HS nozzle"}).json() == {"changed": 2}
     tags = {p["name"]: p["tags"] for p in client.get("/api/printers").json()}
     assert tags == {"P2": ["HS nozzle", "0.6 nozzle"], "P1": ["HS nozzle"]}
     assert client.post("/api/tags/retag", json={"old": "hs nozzle"}).json() == {"changed": 2}      # delete
     assert {p["name"]: p["tags"] for p in client.get("/api/printers").json()} == {"P2": ["0.6 nozzle"], "P1": []}
+
+
+def test_manage_tags_create_assign_and_keep_empty(client):
+    a = client.post("/api/printers", json=BAMBU).json()
+    b = client.post("/api/printers", json={**BAMBU, "name": "P1", "serial": "01S099000000015"}).json()
+    client.patch(f"/api/printers/{a['id']}", json={"tags": ["0.6 nozzle"]})
+    # a tag no printer has yet is kept and listed
+    r = client.put("/api/tags", json={"name": "  Hardened  steel ", "printers": []})
+    assert r.status_code == 200 and r.json() == {"name": "Hardened steel", "count": 0, "printers": []}
+    names = lambda: {t["name"]: sorted(t["printers"]) for t in client.get("/api/tags").json()}
+    assert names() == {"0.6 nozzle": [a["id"]], "Hardened steel": []}
+    # choose exactly which printers have it; other tags untouched
+    client.put("/api/tags", json={"name": "hardened STEEL", "printers": [a["id"], b["id"]]})
+    tags = {p["name"]: p["tags"] for p in client.get("/api/printers").json()}
+    assert tags == {"P2": ["0.6 nozzle", "Hardened steel"], "P1": ["Hardened steel"]}   # existing spelling kept
+    client.put("/api/tags", json={"name": "Hardened steel", "printers": [b["id"]]})
+    client.put("/api/tags", json={"name": "0.6 nozzle", "printers": []})
+    assert names() == {"0.6 nozzle": [], "Hardened steel": [b["id"]]}                 # emptied tag survives
+    # rename and delete also update the defined list
+    client.post("/api/tags/retag", json={"old": "0.6 nozzle", "new": "0.4 nozzle"})
+    assert set(names()) == {"0.4 nozzle", "Hardened steel"}
+    client.post("/api/tags/retag", json={"old": "0.4 nozzle"})
+    assert set(names()) == {"Hardened steel"}
+    assert client.put("/api/tags", json={"name": "x", "printers": ["nope"]}).status_code == 404
+    assert client.put("/api/tags", json={"name": "   ", "printers": []}).status_code == 400
 
 
 def test_tag_edit_keeps_other_settings_and_does_not_reconnect(client, monkeypatch):

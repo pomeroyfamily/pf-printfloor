@@ -101,6 +101,11 @@ class LinkHistory(BaseModel):
     key: str
 
 
+class TagPrinters(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    printers: list[str] = Field(default_factory=list, max_length=500)
+
+
 class Retag(BaseModel):
     old: str = Field(min_length=1)
     new: Optional[str] = None           # missing/blank = delete the tag everywhere
@@ -453,6 +458,16 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
     @app.get("/api/tags")
     async def list_tags(request: Request):
         return mgr(request).tags()
+
+    @app.put("/api/tags")
+    async def set_tag(body: TagPrinters, request: Request):
+        """Create a tag (it's kept even with no printers) and set exactly which printers have it."""
+        try:
+            return mgr(request).set_tag_printers(body.name, body.printers)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except KeyError:
+            raise HTTPException(404, "printer not found")
 
     @app.post("/api/tags/retag")
     async def retag(body: Retag, request: Request):

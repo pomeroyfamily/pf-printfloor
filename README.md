@@ -201,7 +201,8 @@ Everything else is configured in the app (gear menu):
 - **Govee plugs**: paste your Govee API key, then pick which printer each plug powers. Full walkthrough:
   [docs/govee.md](docs/govee.md). The key is stored server-side only and never shown again.
 - **Dashboard & locations**: dashboard name, banner on/off, locations and the default location.
-- **Manage tags**, **Job history**, **Appearance**.
+- **Manage tags**: add tags, choose which printers have each one, rename or delete them everywhere.
+- **Job history**, **Appearance**.
 
 ## Using the dashboard
 
