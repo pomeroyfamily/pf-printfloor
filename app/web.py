@@ -23,7 +23,7 @@ from .discovery.bambu_ssdp import BambuSSDP
 from .drivers import catalog, get_driver
 from .cameras import CameraUnavailable, FRAME_TIMEOUT_S
 from .history import usage_key
-from .plugs import GoveeAuthError, GoveeError, match_plug
+from .plugs import GoveeAuthError, GoveeError, suggest_plugs
 from .manager import Manager
 from .store import DuplicatePrinter, PrinterStore
 
@@ -223,12 +223,8 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         v = m.plugs.account_view()
         taken = set(m.plugs.assigned().keys())
         used = {p["device"] for p in m.plugs.assigned().values()}
-        v["suggestions"] = {}
-        for cfg in m.store.list():
-            if cfg.id not in taken:
-                s = match_plug(cfg.name, m.plugs.plug_list, used)
-                if s:
-                    v["suggestions"][cfg.id] = s["device"]
+        v["suggestions"] = suggest_plugs([(c.id, c.name) for c in m.store.list() if c.id not in taken],
+                                         m.plugs.plug_list, used)
         return v
 
     @app.get("/api/govee")

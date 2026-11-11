@@ -206,6 +206,20 @@ def match_plug(printer_name: str, plugs: list[dict], taken: set[str]) -> Optiona
     return pref[0] if len(pref) == 1 else None
 
 
+def suggest_plugs(printers: list[tuple[str, str]], plugs: list[dict], taken_plugs: set[str]) -> dict[str, str]:
+    """printer id -> plug device for printers without a plug. Each plug goes to at most one printer: an exact name
+    match wins, else the closest name it starts (plug "A1" -> printer "A1-1", not "A1 mini-1")."""
+    norm = lambda s: "".join(ch for ch in (s or "").lower() if ch.isalnum())
+    best: dict[str, tuple[int, str]] = {}            # device -> (extra characters, printer id)
+    for pid, name in printers:
+        p = match_plug(name, plugs, taken_plugs)
+        if p:
+            score = len(norm(name)) - len(norm(p["name"]))
+            if p["device"] not in best or score < best[p["device"]][0]:
+                best[p["device"]] = (score, pid)
+    return {pid: dev for dev, (_, pid) in best.items()}
+
+
 class Plugs:
     """Account link, plug list + state cache, power actions and the log."""
 

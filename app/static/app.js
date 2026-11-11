@@ -1188,25 +1188,70 @@ function renderPlugsDlg() {
   const g = state.govee;
   const box = $("#plugsBody");
   if (!g?.linked) {
-    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (Profile, Settings, Apply for API Key); Govee emails it to you.</p>
+    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (person tab, gear icon, Apply for API Key); Govee emails it to you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">Step-by-step guide</a></p>
       <form id="goveeForm" novalidate><label class="field"><span>Govee API key</span><input name="key" type="password" autocomplete="off" required></label>
       <p class="form-error" id="goveeError" role="alert"></p>
       <div class="row-actions"><button class="btn primary" type="submit">Link Govee account</button></div></form>
       <p class="note">The key is stored on the dashboard server only and never shown again.</p>`;
     return;
   }
-  const name = (pid) => state.printers.find((q) => q.id === pid)?.name;
   const u = g.usage || {};
-  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Set which printer uses which plug in each printer's Details, under Power.</p>
-    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. Plug states are checked every 15 minutes${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
+  // Pick the printer for each plug right here. Unassigned plugs are pre-filled when the plug's name matches a
+  // printer (suggestion); nothing is saved until "Save".
+  const sugByDev = Object.fromEntries(Object.entries(g.suggestions || {}).map(([pid, dev]) => [dev, pid]));
+  const draft = state.plugDraft || (state.plugDraft = {});
+  const chosen = (x) => x.device in draft ? draft[x.device] : (x.printer_id || sugByDev[x.device] || "");
+  const changed = g.plugs.filter((x) => chosen(x) !== (x.printer_id || ""));
+  const picks = g.plugs.map(chosen).filter(Boolean);
+  const dup = picks.find((pid, i) => picks.indexOf(pid) !== i);
+  const printers = [...state.printers].sort((a, b) => a.name.localeCompare(b.name));
+  const sel = (x) => `<select data-assign-plug="${esc(x.device)}" aria-label="Printer on plug ${esc(x.name)}">
+      <option value="">Not used</option>${printers.map((q) => `<option value="${esc(q.id)}" ${chosen(x) === q.id ? "selected" : ""}>${esc(q.name)}</option>`).join("")}</select>`;
+  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Pick the printer each plug powers, then <b>Save</b>. Plugs named like a printer are filled in for you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">How Govee plugs work</a></p>
     ${g.error ? `<p class="note warn">${esc(g.error)}</p>` : ""}
-    <table class="usage-table"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th></tr></thead><tbody>
-    ${g.plugs.map((x) => `<tr><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td><td>${esc(name(x.printer_id) || "")}</td></tr>`).join("")}
+    <table class="usage-table plug-assign"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th></tr></thead><tbody>
+    ${g.plugs.map((x) => {
+      const isSug = !x.printer_id && !(x.device in draft) && sugByDev[x.device];
+      const dirty = chosen(x) !== (x.printer_id || "");
+      return `<tr class="${dirty ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
+        <td>${sel(x)}${isSug ? ` <span class="sub">suggested</span>` : ""}</td></tr>`;
+    }).join("")}
     </tbody></table>
+    <p class="form-error" id="plugAssignError" role="alert">${dup ? `${esc(state.printers.find((q) => q.id === dup)?.name || "A printer")} is picked for two plugs.` : ""}</p>
+    <div class="row-actions"><button class="btn primary" type="button" data-assign-save ${changed.length && !dup ? "" : "disabled"}>${changed.length ? `Save ${changed.length} change${changed.length === 1 ? "" : "s"}` : "Saved"}</button></div>
+    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. A plug's state is checked every 5 minutes while its printer is offline${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
     <div class="row-actions" style="margin-top:12px"><button class="btn danger${state.govArm ? " armed" : ""}" type="button" data-govee-unlink>${state.govArm ? "Click again to unlink" : "Unlink Govee"}</button></div>`;
 }
+async function savePlugAssignments() {
+  const g = state.govee, draft = state.plugDraft || {};
+  const sugByDev = Object.fromEntries(Object.entries(g.suggestions || {}).map(([pid, dev]) => [dev, pid]));
+  const want = Object.fromEntries(g.plugs.map((x) => [x.device, x.device in draft ? draft[x.device] : (x.printer_id || sugByDev[x.device] || "")]));
+  const err = $("#plugAssignError");
+  try {
+    // 1) clear printers that lose their plug or get a different one (so no "already set for" conflicts), 2) set
+    const clear = new Set(), set = [];
+    for (const x of g.plugs) {
+      const to = want[x.device];
+      if (to === (x.printer_id || "")) continue;
+      if (x.printer_id) clear.add(x.printer_id);
+      if (to) { clear.add(to); set.push([to, x.device]); }
+    }
+    for (const pid of clear) await api("PUT", `/api/printers/${pid}/plug`, { device: null });
+    for (const [pid, dev] of set) await api("PUT", `/api/printers/${pid}/plug`, { device: dev });
+    state.plugDraft = {};
+    await loadGovee();
+    renderPlugsDlg();
+  } catch (e) { if (err) err.textContent = e.message; await loadGovee(); }
+}
 function setupPlugsDlg() {
-  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
+  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
+  $("#plugsBody").addEventListener("change", (e) => {
+    const dev = e.target.dataset?.assignPlug;
+    if (dev == null) return;
+    state.plugDraft = { ...(state.plugDraft || {}), [dev]: e.target.value };
+    renderPlugsDlg();
+    $(`[data-assign-plug="${CSS.escape(dev)}"]`)?.focus();
+  });
   $("#plugsBody").addEventListener("submit", async (e) => {
     if (e.target.id !== "goveeForm") return;
     e.preventDefault();
@@ -1215,6 +1260,8 @@ function setupPlugsDlg() {
     catch (err) { $("#goveeError").textContent = err.message; }
   });
   $("#plugsBody").addEventListener("click", async (e) => {
+    const save = e.target.closest("[data-assign-save]");
+    if (save) { save.disabled = true; save.textContent = "Saving…"; await savePlugAssignments(); return; }
     if (!e.target.closest("[data-govee-unlink]")) return;
     if (!state.govArm) { state.govArm = true; renderPlugsDlg(); return; }
     state.govArm = false;

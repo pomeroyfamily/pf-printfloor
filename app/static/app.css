@@ -613,3 +613,6 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 .follow-check input { accent-color: var(--ink); width: 16px; height: 16px; align-self: center; }
 .follow-check small { flex-basis: 100%; padding-left: 24px; }
 #editForm input[readonly] { opacity: .7; }
+.plug-assign td:last-child { white-space: nowrap; text-align: right; }
+.plug-assign select { width: 160px; max-width: 100%; }
+.plug-assign tr.dirty td:first-child { font-weight: 600; }

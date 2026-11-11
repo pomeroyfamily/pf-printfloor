@@ -198,8 +198,8 @@ Everything else is configured in the app (gear menu):
 
 - **Add printer**: from your Bambu account, from a network search (U1 / Klipper / CC), or by IP.
 - **Bambu account**: sign in (email code or authenticator app). The token is stored server-side only.
-- **Govee plugs**: paste your Govee API key (see [Getting a Govee API key](#getting-a-govee-api-key)); it is
-  stored server-side only and never shown again.
+- **Govee plugs**: paste your Govee API key, then pick which printer each plug powers. Full walkthrough:
+  [docs/govee.md](docs/govee.md). The key is stored server-side only and never shown again.
 - **Dashboard & locations**: dashboard name, banner on/off, locations and the default location.
 - **Manage tags**, **Job history**, **Appearance**.
 
@@ -334,18 +334,8 @@ These are deliberate rules or printer quirks that can look odd.
 
 ### Smart plugs (Govee)
 
-#### Getting a Govee API key
-
-Govee has no "sign in with Govee" for other apps; each user requests their own API key.
-
-1. In the **Govee Home** app: the person tab (bottom right) → gear icon (top) → **Apply for API Key**.
-2. Enter your name and a reason (e.g. "local printer dashboard") and submit. Govee emails you the key; it
-   can take a while to arrive.
-3. In the dashboard: gear menu → **Govee plugs** → paste the key.
-
-**One key per account:** since May 2026, getting a new key turns off your older keys right away. If another app
-(Home Assistant, scripts) already uses your Govee key, reuse that key here, or update those apps after getting
-a new one. Only plugs on the Govee cloud API are supported (tested: H5086).
+Setup (getting the API key, linking it, matching plugs to printers) and troubleshooting:
+**[docs/govee.md](docs/govee.md)**.
 
 - **Rate limit**: Govee allows about 10,000 requests a day. Background polling stops after 3,000 of the
   dashboard's own requests (or when fewer than 2,000 remain), so on/off and emergency stop always have room.
