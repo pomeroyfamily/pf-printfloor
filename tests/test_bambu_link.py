@@ -48,12 +48,28 @@ async def drive(seconds, port, **settings):
     return d, seen
 
 
+async def run_until(d, seen, done, limit=10.0):
+    """Run the driver until done(seen) is true (or `limit` seconds). Fixed sleeps were too short on slower
+    machines such as GitHub's runners."""
+    d.start()
+    for _ in range(int(limit / 0.1)):
+        if done(seen):
+            break
+        await asyncio.sleep(0.1)
+    await d.stop()
+
+
+def online_links(seen):
+    return [s.link for s in seen if s.connection == ConnState.ONLINE]
+
+
 def test_cloud_mode_reads_through_the_account(tmp_path, cloud):
     async def go():
         async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token) as broker:
             link(cloud, broker)
             d, seen = await drive(0, free_port(), connection="cloud")
-            d.start(); await asyncio.sleep(1.5); await d.stop()
+            await run_until(d, seen, lambda s: any(x.connection == ConnState.ONLINE and x.job.progress_pct is not None
+                                                   for x in s) and len(broker.requests) >= 2)
             return broker, seen
     broker, seen = asyncio.run(go())
     online = [s for s in seen if s.connection == ConnState.ONLINE]
@@ -69,7 +85,7 @@ def test_auto_falls_back_to_cloud_when_not_on_the_lan(tmp_path, cloud, monkeypat
         async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token) as broker:
             link(cloud, broker)
             d, seen = await drive(0, free_port())                      # LAN port: nothing listening
-            d.start(); await asyncio.sleep(2.0); await d.stop()
+            await run_until(d, seen, lambda s: "cloud" in online_links(s))
             return seen
     seen = asyncio.run(go())
     assert [s.link for s in seen if s.connection == ConnState.ONLINE][-1] == "cloud"
@@ -98,7 +114,7 @@ def test_auto_comes_home_to_the_lan(tmp_path, cloud, monkeypatch):
             link(cloud, broker)
             d, seen = await drive(0, lan.mqtt_port)
             d._via_cloud = True                                        # it was away; now it's back home
-            d.start(); await asyncio.sleep(2.5); await d.stop()
+            await run_until(d, seen, lambda s: online_links(s)[-1:] == ["local"] and "cloud" in online_links(s))
             return seen
     links = [s.link for s in asyncio.run(go()) if s.connection == ConnState.ONLINE]
     assert links[0] == "cloud" and links[-1] == "local"
@@ -187,7 +203,7 @@ def test_new_access_code_taken_from_the_account(tmp_path, cloud):
                 FakeBambu(tmp_path / "l", fixture(FX), code="87654321") as lan:
             link(cloud, broker)
             d, seen = await drive(0, lan.mqtt_port, connection="local")          # saved code: 12345678 (old)
-            d.start(); await asyncio.sleep(1.5); await d.stop()
+            await run_until(d, seen, lambda s: "local" in online_links(s))
             return d, seen
     d, seen = asyncio.run(go())
     online = [s for s in seen if s.connection == ConnState.ONLINE]
