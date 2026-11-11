@@ -528,10 +528,12 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
                 while True:
                     if await request.is_disconnected():
                         break
+                    if not m.subscribed(q) and q.empty():
+                        break                  # dropped for falling behind: end it, the browser reconnects fresh
                     try:
                         ev = await asyncio.wait_for(q.get(), timeout=KEEPALIVE_S)
                     except asyncio.TimeoutError:
-                        yield ": keepalive\n\n"
+                        yield _sse({"type": "ping"})   # a real event, so the browser can tell a dead stream
                         continue
                     yield _sse(ev)
             finally:

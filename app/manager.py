@@ -242,6 +242,10 @@ class Manager:
     def unsubscribe(self, q: asyncio.Queue) -> None:
         self._subs.discard(q)
 
+    def subscribed(self, q: asyncio.Queue) -> bool:
+        """False once the queue was dropped for falling behind: the stream must end so the browser reconnects."""
+        return q in self._subs
+
     def _broadcast(self, event: dict) -> None:
         for q in list(self._subs):
             try:

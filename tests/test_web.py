@@ -183,3 +183,11 @@ def test_page_links_versioned_css_and_js(client):
     js = re.search(r'src="/static/app\.js\?v=([0-9a-f]{10})"', html)
     assert css and js and css.group(1) == js.group(1)
     assert client.get(f"/static/app.css?v={css.group(1)}").status_code == 200
+
+
+def test_stalled_live_stream_is_dropped_and_ends(client):
+    m = client.app.state.mgr
+    q = m.subscribe()
+    for _ in range(501):                      # a tab that stopped reading fills its queue
+        m._broadcast({"type": "ping"})
+    assert not m.subscribed(q)                # dropped, so its stream ends and the browser reconnects

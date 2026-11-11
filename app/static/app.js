@@ -820,8 +820,10 @@ function setupLayoutDlg() {
     const err = $("#layError");
     if (lay.draft.some((x) => !x.name.trim())) { err.textContent = "Every location needs a name (or delete the empty one)."; return; }
     try {
-      await api("PUT", "/api/dashboard", { name: $("#layName").value.trim() || null, banner: $("#layBanner").checked });
-      await api("PUT", "/api/locations", { items: lay.draft.map((x) => (x.id ? { id: x.id, name: x.name } : { ref: x.key, name: x.name })), default: lay.def });
+      // apply what the server saved right away; don't wait for the live update stream
+      state.layout.dashboard = await api("PUT", "/api/dashboard", { name: $("#layName").value.trim() || null, banner: $("#layBanner").checked });
+      state.layout.locations = await api("PUT", "/api/locations", { items: lay.draft.map((x) => (x.id ? { id: x.id, name: x.name } : { ref: x.key, name: x.name })), default: lay.def });
+      applyLayout(); renderAll();
       $("#layoutDlg").close();
     } catch (ex) { err.textContent = ex.message; }
   });
@@ -2167,12 +2169,20 @@ function renderAccount(step, msg, box = $("#accountBody"), onDone = null) {
 }
 
 // ---------------------------------------------------------------- live updates
+const LIVE_SILENT_MS = 45000;   // the server sends at least a ping every 15 s
+let liveES = null, liveLast = 0;
+setInterval(() => {               // a stream that went quiet (sleep, Wi-Fi drop, dropped by the server): start over
+  if (liveES && Date.now() - liveLast > LIVE_SILENT_MS) { liveES.close(); connect(); }
+}, 10000);
 function connect() {
   const es = new EventSource("/api/events");
-  es.onopen = () => { $("#liveBanner").hidden = true; };
+  liveES = es; liveLast = Date.now();
+  es.onopen = () => { liveLast = Date.now(); $("#liveBanner").hidden = true; };
   es.onerror = () => { $("#liveBanner").hidden = false; };
   es.onmessage = (m) => {
+    liveLast = Date.now();
     const ev = JSON.parse(m.data);
+    if (ev.type === "ping") return;
     if (ev.type === "printers") {
       if (ev.layout) { state.layout = ev.layout; applyLayout(); }
       state.printers = ev.printers; renderAll();
