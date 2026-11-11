@@ -954,6 +954,7 @@ function setupTags() {
 // ---------------------------------------------------------------- usage (Details) + job history
 state.usage = {};
 const fmtH = (s) => s == null ? "" : `${(s / 3600).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h`;
+const fmtAvg = (s) => s < 3600 ? `${Math.round(s / 60)} min` : fmtH(s);   // short jobs read better in minutes
 const fmtN = (n) => n == null ? "" : n.toLocaleString();
 const jobsN = (n) => `${fmtN(n)} job${n === 1 ? "" : "s"}`;
 const NO_RATE = `<span class="sub">No ended jobs yet</span>`;
@@ -1009,6 +1010,8 @@ function usageHTML(p) {
       ["Success rate", u.success_rate == null ? NO_RATE : `${u.success_rate}% <span class="sub">(${u.finished} finished, ${u.failed} failed since tracking began)</span>`],
       ["Before tracking", `${esc(fmtH(u.baseline_seconds))}, ${esc(jobsN(u.baseline_jobs))} <span class="sub">(${src})</span> ${state.usageEdit ? "" : `<button type="button" class="link-btn" data-usage="edit">Edit</button>`}`],
       ["Tracked here", `${esc(fmtH(u.tracked_seconds))}, ${esc(jobsN(u.tracked_jobs))} <span class="sub">since ${esc(fmtDate([u.first_job_at, u.tracking_since].filter(Boolean).sort()[0]))}</span>`],
+      ["Average per job", u.avg_job_seconds == null ? `<span class="sub">No ended jobs yet</span>`
+        : `${esc(fmtAvg(u.avg_job_seconds))} <span class="sub">(${esc(jobsN(u.avg_jobs))} tracked here${u.avg_jobs < u.tracked_jobs ? ", not counting the one printing" : ""})</span>`],
     ])}
     ${edit}${auditHTML}
     ${u.recent.length ? `<h4 class="minor">Recent jobs</h4><ul class="job-list">${u.recent.map((j) => jobRow(j)).join("")}</ul>` : `<p class="muted">No jobs recorded yet.</p>`}
