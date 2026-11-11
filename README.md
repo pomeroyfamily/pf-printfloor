@@ -6,6 +6,8 @@ fleet (Bambu Lab, Snapmaker U1 / Klipper and Elegoo Centauri Carbon) on one page
 It is **status-only**: it never starts, pauses, cancels or changes anything on a printer. The only
 things it can switch are a printer's **smart plug** (Govee) and the printer's **camera stream**.
 
+![PF PrintFloor dashboard, full cards](docs/screenshots/dashboard-full.png)
+
 > Early release, shared for testing. Feedback and bug reports are welcome in
 > [Issues](https://github.com/pomeroyfamily/pf-printfloor/issues).
 
@@ -49,6 +51,21 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 - **Remote Bambu printers** through the Bambu cloud when they are not on the local network.
 - **Firmware "update available"** notice for Bambu printers (notification only).
 - **Light / Dark / Auto** appearance.
+
+### Screenshots
+
+| | |
+|---|---|
+| ![Camera wall](docs/screenshots/camera-wall.jpg) **Camera wall**: every camera at once, streaming only while open | ![Single camera](docs/screenshots/camera-single.jpg) **One printer's camera** from its card |
+| ![List view](docs/screenshots/list-view.png) **List view**, sortable by any column | ![Compact view](docs/screenshots/compact-expanded.png) **Compact view**, a card expanded |
+| ![Details panel](docs/screenshots/details-panel.png) **Details**: job, print hours, history | ![Smart plug](docs/screenshots/smart-plug.png) **Smart plug**: on/off and an optional daily power cycle |
+| ![Job history](docs/screenshots/job-history.png) **Job history** for the whole fleet, with CSV export (light theme) | ![Govee plugs](docs/screenshots/govee-plugs.png) **Govee account**: which plug powers which printer, request budget |
+
+**On a phone**, light or dark:
+
+| | | |
+|---|---|---|
+| ![Phone, cameras, light theme](docs/screenshots/phone-light-cameras.png) | ![Phone, compact view, light theme](docs/screenshots/phone-light-compact.png) | ![Phone, full card, dark theme](docs/screenshots/phone-dark-full.png) |
 
 ## Supported printers
 
