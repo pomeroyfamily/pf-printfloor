@@ -1,6 +1,6 @@
 [project]
 name = "pf-printfloor"
-version = "0.1.1"
+version = "0.1.2"
 description = "PF PrintFloor (Pomeroy Family PrintFloor): a status-only web dashboard for Bambu Lab, Snapmaker U1 / Klipper and Elegoo printers"
 license = "MIT"
 readme = "README.md"
