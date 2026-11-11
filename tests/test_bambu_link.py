@@ -65,7 +65,7 @@ def online_links(seen):
 
 def test_cloud_mode_reads_through_the_account(tmp_path, cloud):
     async def go():
-        async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token) as broker:
+        async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token, ftps=False) as broker:
             link(cloud, broker)
             d, seen = await drive(0, free_port(), connection="cloud")
             await run_until(d, seen, lambda s: any(x.connection == ConnState.ONLINE and x.job.progress_pct is not None
@@ -82,7 +82,7 @@ def test_cloud_mode_reads_through_the_account(tmp_path, cloud):
 def test_auto_falls_back_to_cloud_when_not_on_the_lan(tmp_path, cloud, monkeypatch):
     monkeypatch.setattr(BambuPrinter, "CLOUD_AFTER_S", 0.0)
     async def go():
-        async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token) as broker:
+        async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token, ftps=False) as broker:
             link(cloud, broker)
             d, seen = await drive(0, free_port())                      # LAN port: nothing listening
             await run_until(d, seen, lambda s: "cloud" in online_links(s))
@@ -95,7 +95,7 @@ def test_auto_stays_offline_when_not_on_the_account(tmp_path, cloud, monkeypatch
     monkeypatch.setattr(BambuPrinter, "CLOUD_AFTER_S", 0.0)
     cloud.devices = [{"dev_id": "SOMEONE_ELSE", "online": True}]
     async def go():
-        async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token) as broker:
+        async with FakeBambu(tmp_path, fixture(FX), user="u_42", code=cloud.token, ftps=False) as broker:
             link(cloud, broker)
             d, seen = await drive(0, free_port())
             d.start(); await asyncio.sleep(1.0); await d.stop()
@@ -109,8 +109,8 @@ def test_auto_comes_home_to_the_lan(tmp_path, cloud, monkeypatch):
     async def go():
         (tmp_path / "c").mkdir(); (tmp_path / "l").mkdir()
         async with FakeBambu(tmp_path / "c", fixture(FX), user="u_42", code=cloud.token,
-                             deltas=[{"mc_percent": 50 + i} for i in range(40)]) as broker, \
-                FakeBambu(tmp_path / "l", fixture(FX)) as lan:
+                             deltas=[{"mc_percent": 50 + i} for i in range(40)], ftps=False) as broker, \
+                FakeBambu(tmp_path / "l", fixture(FX), ftps=False) as lan:
             link(cloud, broker)
             d, seen = await drive(0, lan.mqtt_port)
             d._via_cloud = True                                        # it was away; now it's back home
@@ -199,8 +199,8 @@ def test_new_access_code_taken_from_the_account(tmp_path, cloud):
     cloud.devices = [{"dev_id": SERIAL, "name": "P1", "online": True, "dev_access_code": "87654321"}]
     async def go():
         (tmp_path / "c").mkdir(); (tmp_path / "l").mkdir()
-        async with FakeBambu(tmp_path / "c", fixture(FX), user="u_42", code=cloud.token) as broker, \
-                FakeBambu(tmp_path / "l", fixture(FX), code="87654321") as lan:
+        async with FakeBambu(tmp_path / "c", fixture(FX), user="u_42", code=cloud.token, ftps=False) as broker, \
+                FakeBambu(tmp_path / "l", fixture(FX), code="87654321", ftps=False) as lan:
             link(cloud, broker)
             d, seen = await drive(0, lan.mqtt_port, connection="local")          # saved code: 12345678 (old)
             await run_until(d, seen, lambda s: "local" in online_links(s))
@@ -214,7 +214,7 @@ def test_new_access_code_taken_from_the_account(tmp_path, cloud):
 def test_wrong_code_and_no_account_still_says_so(tmp_path):
     bambu_cloud.set_account(None)                    # (other tests may leave a linked account behind)
     async def go():
-        async with FakeBambu(tmp_path, fixture(FX), code="87654321") as lan:
+        async with FakeBambu(tmp_path, fixture(FX), code="87654321", ftps=False) as lan:
             d, seen = await drive(0, lan.mqtt_port, connection="local")
             d.start()
             for _ in range(50):                      # up to 5 s (a fixed 1 s wait was flaky under load)
