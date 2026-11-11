@@ -51,11 +51,32 @@ You can also set or change a single printer's plug in its **Details → Power** 
   won't confirm, it says "unconfirmed": check the plug or the Govee app.
 - Every on/off is logged in Details → Power → Recent.
 
-## 5. Optional: automatic daily power cycle
+## 5. Optional: daily power cycle
 
-Details → Power → **Power cycle once a day**: off for 15 seconds, then on again, at a time you choose, only when the
-printer has been idle long enough, is cool and has printed since the last cycle. The full rules are in the README
-under [Automatic power cycle](../README.md#automatic-power-cycle).
+Some printers run better after a daily restart. The dashboard can do it for you: plug **off for 15 seconds, then
+on again**, once a day.
+
+**Turn it on** for a printer either:
+- in the **Govee plugs** window: the **Daily power cycle** switch next to the plug, then **Save**, or
+- in the printer's **Details → Power → Power cycle once a day**.
+
+**Defaults:** at **6:00 AM**, once the printer has been Finished or Idle for **30 minutes**. Change both for each
+printer in **Details → Power** (*Daily at* and *After idle for (minutes)*) and click **Save** there.
+
+It only power cycles when it's safe and useful:
+- the printer is **Finished or Idle**, with **a print since the last power cycle** (an unused printer is left
+  alone),
+- the nozzle is cool and nothing else is running (no file transfer, firmware update or filament drying),
+- the plug is on (a plug that's off is never switched on),
+- the printer hasn't restarted in the 12 hours before the daily time (a dashboard power cycle, or its own reboot
+  where the printer reports it),
+- if a print runs past the set time, it waits until the print is done (after more than 24 hours since the last
+  restart, it runs as soon as the printer is finished and idle long enough).
+
+Turning it on doesn't cycle right away: the first one is at the first daily time at least 12 hours later.
+
+While a power cycle is coming up, the card shows a countdown, with **Pause** and **Restart countdown**. The full
+rules are in the README under [Automatic power cycle](../README.md#automatic-power-cycle).
 
 ## How often it talks to Govee
 

@@ -1097,7 +1097,7 @@ function cycleSettingsHTML(p) {
       <label class="field"><span>Daily at</span><input type="time" name="time" value="${esc(a.time)}" required></label>
       <label class="field"><span>After idle for (minutes)</span><input type="number" name="idle_min" min="1" max="1440" step="1" value="${esc(a.idle_min)}" required></label>
     </div>
-    <p class="note">Plug off, 15 seconds, plug on. Only when the printer is Finished or Idle with a print since the last power cycle, the nozzle is cool and nothing else is running. Skipped that day if it was power cycled from the dashboard less than 12 hours before; more than 24 hours since the last one and it runs once the current print is done.${a.last_cycle ? ` Last power cycle: ${esc(fmtWhen(a.last_cycle))}.` : ""}${c ? ` Now: ${esc(c.text)}${c.tip ? ` (${esc(c.tip)})` : ""}.` : ""}</p>
+    <p class="note">Plug off, 15 seconds, plug on. Only when the printer is Finished or Idle with a print since the last power cycle, the nozzle is cool and nothing else is running. Skipped that day if it was power cycled from the dashboard less than 12 hours before; more than 24 hours since the last one and it runs once the current print is done.${a.last_cycle ? ` Last power cycle: ${esc(fmtWhen(a.last_cycle))}.` : ""}${c ? ` Now: ${esc(c.text)}${c.tip ? ` (${esc(c.tip)})` : ""}.` : ""} <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md#5-optional-daily-power-cycle" target="_blank" rel="noopener">How it works</a></p>
     <div class="row-actions"><button class="btn" type="submit">Save</button></div>
     <p class="form-error" data-cycle-error role="alert"></p>
   </form>`;
@@ -1200,8 +1200,11 @@ function renderPlugsDlg() {
   // printer (suggestion); nothing is saved until "Save".
   const sugByDev = Object.fromEntries(Object.entries(g.suggestions || {}).map(([pid, dev]) => [dev, pid]));
   const draft = state.plugDraft || (state.plugDraft = {});
+  const cyc = state.cycleDraft || (state.cycleDraft = {});
   const chosen = (x) => x.device in draft ? draft[x.device] : (x.printer_id || sugByDev[x.device] || "");
-  const changed = g.plugs.filter((x) => chosen(x) !== (x.printer_id || ""));
+  const cycleNow = (pid) => !!state.printers.find((q) => q.id === pid)?.autocycle?.enabled;
+  const cycleOn = (x) => { const pid = chosen(x); return !!pid && (x.device in cyc ? cyc[x.device] : cycleNow(pid)); };
+  const changed = g.plugs.filter((x) => chosen(x) !== (x.printer_id || "") || (chosen(x) && cycleOn(x) !== cycleNow(chosen(x))));
   const picks = g.plugs.map(chosen).filter(Boolean);
   const dup = picks.find((pid, i) => picks.indexOf(pid) !== i);
   const printers = [...state.printers].sort((a, b) => a.name.localeCompare(b.name));
@@ -1209,14 +1212,17 @@ function renderPlugsDlg() {
       <option value="">Not used</option>${printers.map((q) => `<option value="${esc(q.id)}" ${chosen(x) === q.id ? "selected" : ""}>${esc(q.name)}</option>`).join("")}</select>`;
   box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Pick the printer each plug powers, then <b>Save</b>. Plugs named like a printer are filled in for you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">How Govee plugs work</a></p>
     ${g.error ? `<p class="note warn">${esc(g.error)}</p>` : ""}
-    <table class="usage-table plug-assign"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th></tr></thead><tbody>
+    <table class="usage-table plug-assign"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th><th title="Optional: power cycle the printer once a day">Daily power cycle</th></tr></thead><tbody>
     ${g.plugs.map((x) => {
       const isSug = !x.printer_id && !(x.device in draft) && sugByDev[x.device];
       const dirty = chosen(x) !== (x.printer_id || "");
-      return `<tr class="${dirty ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
-        <td>${sel(x)}${isSug ? ` <span class="sub">suggested</span>` : ""}</td></tr>`;
+      const pid = chosen(x);
+      return `<tr class="${dirty || (pid && cycleOn(x) !== cycleNow(pid)) ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
+        <td>${sel(x)}${isSug ? ` <span class="sub">suggested</span>` : ""}</td>
+        <td><input type="checkbox" class="toggle" data-cycle-plug="${esc(x.device)}" ${cycleOn(x) ? "checked" : ""} ${pid ? "" : "disabled"} aria-label="Daily power cycle for the printer on ${esc(x.name)}"></td></tr>`;
     }).join("")}
     </tbody></table>
+    <p class="note">Daily power cycle (optional): the plug turns off for 15 seconds, then back on, once a day. New ones start at <b>6:00 AM</b>, only after the printer has been finished or idle for <b>30 minutes</b>, is cool and has printed since the last cycle. Change the time and the idle minutes for each printer in its <b>Details → Power</b>. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md#5-optional-daily-power-cycle" target="_blank" rel="noopener">How it works</a></p>
     <p class="form-error" id="plugAssignError" role="alert">${dup ? `${esc(state.printers.find((q) => q.id === dup)?.name || "A printer")} is picked for two plugs.` : ""}</p>
     <div class="row-actions"><button class="btn primary" type="button" data-assign-save ${changed.length && !dup ? "" : "disabled"}>${changed.length ? `Save ${changed.length} change${changed.length === 1 ? "" : "s"}` : "Saved"}</button></div>
     <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. A plug's state is checked every 5 minutes while its printer is offline${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
@@ -1238,14 +1244,32 @@ async function savePlugAssignments() {
     }
     for (const pid of clear) await api("PUT", `/api/printers/${pid}/plug`, { device: null });
     for (const [pid, dev] of set) await api("PUT", `/api/printers/${pid}/plug`, { device: dev });
-    state.plugDraft = {};
+    // daily power cycle toggles: keep each printer's own time / idle minutes (defaults 6:00 AM, 30 min)
+    let tz = null;
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (_) { /* old browser */ }
+    const cyc = state.cycleDraft || {};
+    for (const x of g.plugs) {
+      const pid = want[x.device];
+      if (!pid || !(x.device in cyc)) continue;
+      const a = state.printers.find((q) => q.id === pid)?.autocycle || {};
+      if (!!a.enabled === cyc[x.device]) continue;
+      await api("PUT", `/api/printers/${pid}/autocycle`, { enabled: cyc[x.device], time: a.time || "06:00", idle_min: a.idle_min || 30, tz });
+    }
+    state.plugDraft = {}; state.cycleDraft = {};
     await loadGovee();
     renderPlugsDlg();
   } catch (e) { if (err) err.textContent = e.message; await loadGovee(); }
 }
 function setupPlugsDlg() {
-  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
+  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; state.cycleDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
   $("#plugsBody").addEventListener("change", (e) => {
+    const cdev = e.target.dataset?.cyclePlug;
+    if (cdev != null) {
+      state.cycleDraft = { ...(state.cycleDraft || {}), [cdev]: e.target.checked };
+      renderPlugsDlg();
+      $(`[data-cycle-plug="${CSS.escape(cdev)}"]`)?.focus();
+      return;
+    }
     const dev = e.target.dataset?.assignPlug;
     if (dev == null) return;
     state.plugDraft = { ...(state.plugDraft || {}), [dev]: e.target.value };
