@@ -574,8 +574,8 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
             raise HTTPException(409, "Sign in to your Bambu account first")
         try:
             return await asyncio.to_thread(acct.cloud.devices)
-        except bambu_cloud.TokenExpired:
-            acct.state = "needs_login"
+        except bambu_cloud.TokenExpired as e:
+            acct._rejected(e)
             raise HTTPException(409, "Bambu stopped accepting the saved sign-in. Sign in again")
         except bambu_cloud.CloudError as e:
             raise HTTPException(502, f"Could not reach Bambu: {e}")

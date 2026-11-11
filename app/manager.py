@@ -3,6 +3,8 @@ to every open browser (Server-Sent Events)."""
 from __future__ import annotations
 
 import asyncio
+import ipaddress
+import socket
 import logging
 import uuid
 from types import SimpleNamespace
@@ -23,7 +25,25 @@ from .drivers.base import PrinterBase
 from .models import ConnState, PrinterStatus
 from .store import PrinterConfig, PrinterStore
 
+from .transports.tls import peer_common_name
+
 log = logging.getLogger(__name__)
+
+
+def _answers(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), 3):
+            return True
+    except OSError:
+        return False
+
+
+def _is_ip(text: str) -> bool:
+    try:
+        ipaddress.ip_address(text)
+        return True
+    except ValueError:
+        return False
 
 
 MAX_TAGS, MAX_TAG_LEN = 20, 30
@@ -48,6 +68,7 @@ class Manager:
         self.ssdp.listeners.append(self._on_bambu_announcement)
         self.drivers: dict[str, PrinterBase] = {}
         self.status: dict[str, PrinterStatus] = {}
+        self._moving: set[str] = set()                # printers being moved to an announced new address
         self.reported_names: dict[str, str] = {}     # last name each printer reported (see _auto_rename)
         self._subs: set[asyncio.Queue] = set()
         self._bambu_hours_task: Optional[asyncio.Task] = None
@@ -60,7 +81,8 @@ class Manager:
 
     # ------------------------------------------------------------------ lifecycle
     async def start(self, drivers: bool = True) -> None:
-        bambu_cloud.set_account(bambu_cloud.account_from_store(self.store))
+        self._loop = asyncio.get_running_loop()
+        self._use_account(bambu_cloud.account_from_store(self.store))
         self.plugs.start(self.broadcast_printers, self.status.get)
         await self.ssdp.start()
         if drivers:
@@ -148,6 +170,39 @@ class Manager:
         for cfg in self.store.list():
             if cfg.driver.startswith("bambu.") and (cfg.serial == a.serial if cfg.serial else cfg.host == a.host):
                 self._auto_rename(cfg.id, a.name)
+                if (cfg.serial and a.host and a.host != cfg.host and _is_ip(a.host) and _is_ip(cfg.host)
+                        and a.sender == a.host                # sent from the address it claims
+                        and cfg.id not in self._moving):     # a typed host name (DNS) is left alone
+                    self._moving.add(cfg.id)
+                    asyncio.get_running_loop().create_task(self._follow_new_address(cfg.id, a.host))
+
+    async def _follow_new_address(self, printer_id: str, new_host: str) -> None:
+        """A Bambu printer we know (same serial number) announced itself at a new address - e.g. after a Wi-Fi change
+        or a new DHCP lease. Use the new address and reconnect; Details shows the change."""
+        try:
+            cfg = self.store.get(printer_id)
+            if not cfg or cfg.host == new_host:
+                return
+            # Safety: the access code is sent to whatever address we connect to, so only move when the printer is
+            # really gone from the old address AND the new address presents this printer's own certificate
+            # (Bambu printers' TLS certificate is issued to their serial number).
+            port = int(cfg.settings.get("mqtt_port") or 8883)
+            if await asyncio.to_thread(_answers, cfg.host, port):
+                log.info("printer %s: announced at %s but still answers at %s - not moving", printer_id, new_host,
+                         cfg.host)
+                return
+            cn = await asyncio.to_thread(peer_common_name, new_host, port)
+            if cn != cfg.serial:
+                log.warning("printer %s: %s claims to be it but its certificate says %r - not moving", printer_id,
+                            new_host, cn)
+                return
+            moved = {"from": cfg.host, "to": new_host, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            new = self.store.update(printer_id, host=new_host, settings={**cfg.settings, "address_changed": moved})
+            log.info("printer %s: now at %s (was %s) - it announced the new address", printer_id, new_host, cfg.host)
+            await self._restart(new)
+            self.broadcast_printers()
+        finally:
+            self._moving.discard(printer_id)
 
     def _heard_name(self, cfg: PrinterConfig) -> Optional[str]:
         if not cfg.driver.startswith("bambu."):
@@ -413,6 +468,9 @@ class Manager:
             fields["settings"] = settings
         if host is not None and host != cfg.host:
             fields["host"] = host
+            if cfg.settings.get("address_changed"):    # typed by hand: the old "it moved" note no longer applies
+                fields["settings"] = {k: v for k, v in fields.get("settings", cfg.settings).items()
+                                      if k != "address_changed"}
         if serial is not None:
             fields["serial"] = serial or None
         if secrets:
@@ -631,5 +689,17 @@ class Manager:
         self.broadcast_printers()
 
     def set_bambu_account(self, acct: Optional[bambu_cloud.Account]) -> None:
-        bambu_cloud.set_account(acct)
+        self._use_account(acct)
         self._broadcast({"type": "account"})
+
+    def _use_account(self, acct: Optional[bambu_cloud.Account]) -> None:
+        if acct:
+            acct.on_rejected = self._account_rejected
+        bambu_cloud.set_account(acct)
+
+    def _account_rejected(self) -> None:
+        """Bambu refused the saved sign-in (may be called from a worker thread): save it, tell the browsers."""
+        bambu_cloud.mark_rejected(self.store)
+        loop = getattr(self, "_loop", None)
+        if loop and not loop.is_closed():
+            loop.call_soon_threadsafe(self._broadcast, {"type": "account"})

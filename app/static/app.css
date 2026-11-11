@@ -534,7 +534,7 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
   .lhead { display: none; }
   .card.row {
     grid-template-columns: 18px 44px minmax(0, 1fr) auto;
-    grid-template-areas: "grip thumb name status" "grip thumb job job" "grip thumb prog prog" "grip thumb fil act";
+    grid-template-areas: "grip thumb name status" "grip thumb job job" "grip thumb prog prog" "grip thumb time time" "grip thumb fil act";
     row-gap: 4px; column-gap: 10px; padding: 10px 12px 10px 14px;
   }
   .card.row .lc-grip { grid-area: grip; align-self: start; }
@@ -543,9 +543,9 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
   .card.row .lc-status { grid-area: status; justify-self: end; }
   .card.row .lc-job { grid-area: job; }
   .card.row .lc-progress { grid-area: prog; }
-  /* time shares the progress line (right side) so it doesn't widen the last column */
-  .card.row .lc-progress { max-width: 40%; }
-  .card.row .lc-time { grid-area: prog; justify-self: end; color: var(--muted); font-size: 13px; max-width: 59%; }
+  /* time gets its own line under the bar: sharing the bar's line overlapped on phones ("62%h 13m left") */
+  .card.row .lc-time { grid-area: time; display: block; color: var(--muted); font-size: 13px; min-width: 0; }
+  .card.row .lc-time:empty { display: none; }
   .card.row .lc-actions .btn { padding: 5px 10px; margin-left: 4px; }
   .card.row .lc-filament { grid-area: fil; }
   .card.row .lc-printer small { display: none; }

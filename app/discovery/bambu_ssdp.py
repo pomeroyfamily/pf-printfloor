@@ -26,6 +26,7 @@ class Announcement:
     model_code: Optional[str]
     firmware: Optional[str]
     seen_at: float = field(default_factory=time.time)
+    sender: Optional[str] = None      # the address the packet came from
 
 
 def parse(data: bytes, sender_ip: str) -> Optional[Announcement]:
@@ -42,7 +43,7 @@ def parse(data: bytes, sender_ip: str) -> Optional[Announcement]:
         return None
     return Announcement(serial=serial, host=h.get("location") or sender_ip,
                         name=h.get("devname.bambu.com") or None, model_code=h.get("devmodel.bambu.com"),
-                        firmware=h.get("devversion.bambu.com"))
+                        firmware=h.get("devversion.bambu.com"), sender=sender_ip)
 
 
 class _Proto(asyncio.DatagramProtocol):
