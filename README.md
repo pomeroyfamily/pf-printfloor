@@ -60,6 +60,12 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 | ![List view](docs/screenshots/list-view.png) **List view**, sortable by any column | ![Compact view](docs/screenshots/compact-expanded.png) **Compact view**, a card expanded |
 | ![Details panel](docs/screenshots/details-panel.png) **Details**: job, print hours, history | ![Smart plug](docs/screenshots/smart-plug.png) **Smart plug**: on/off and an optional daily power cycle |
 
+**On a phone**, light or dark:
+
+| | | |
+|---|---|---|
+| ![Phone, cameras, light theme](docs/screenshots/phone-light-cameras.png) | ![Phone, compact view, light theme](docs/screenshots/phone-light-compact.png) | ![Phone, full card, dark theme](docs/screenshots/phone-dark-full.png) |
+
 ## Supported printers
 
 | Printer | Driver | Connection | Camera | Pause reason | Uptime / reboot |
