@@ -2322,6 +2322,11 @@ setupGroups();
 setupLocs();
 setupLayoutDlg();
 setupTags();
+// installed as an app (home screen): no browser reload button, so offer one in Settings
+if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
+  $("#reloadBtn").hidden = false;
+  $("#reloadBtn").addEventListener("click", () => location.reload());
+}
 loadTags();
 setupUsage();
 setupHistory();

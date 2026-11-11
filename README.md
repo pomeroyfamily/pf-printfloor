@@ -23,6 +23,7 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 - [Updating](#updating)
 - [Configuration](#configuration)
 - [Using the dashboard](#using-the-dashboard)
+  - [Install it as an app](#install-it-as-an-app-ipad-iphone-desktop)
 - [Remote access and security](#remote-access-and-security)
 - [Behavior notes and known limitations](#behavior-notes-and-known-limitations)
 - [Diagnostic tools](#diagnostic-tools)
@@ -219,6 +220,20 @@ Everything else is configured in the app (gear menu):
 
 Filters, sort, view and grouping are remembered **per browser**. The dashboard name, locations, printers and
 all other settings are **shared** by every browser.
+
+### Install it as an app (iPad, iPhone, desktop)
+
+The dashboard can sit on your home screen and open full screen, without the browser bars. It's the same
+dashboard, using your dashboard name and the PF PrintFloor icon.
+
+- **iPad / iPhone (Safari):** open the dashboard → **Share** → **Add to Home Screen** → **Add**. Works on your
+  local network address (for example `http://192.168.1.50:8765`).
+- **Android (Chrome):** menu (⋮) → **Add to Home screen** or **Install app**.
+- **Desktop (Chrome / Edge):** the install icon in the address bar. Chrome and Edge only offer this on
+  `https://` or `localhost`; on a plain `http://` network address use a bookmark instead.
+
+In the installed app there's no browser reload button, so **Settings → Reload** appears there. Renaming the
+dashboard later doesn't rename an icon already on the home screen; remove it and add it again.
 
 ## Remote access and security
 

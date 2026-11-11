@@ -5,6 +5,7 @@ Run:  python -m app            (http://localhost:8765)
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -165,8 +166,24 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         .replace('src="/static/app.js"', f'src="/static/app.js?v={_ver}"')
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-    async def index():
-        return HTMLResponse(_page, headers={"Cache-Control": "no-cache"})
+    async def index(request: Request):
+        # the dashboard's own name, so "Add to Home Screen" offers it (the page sets it again live)
+        name = html.escape(mgr(request).dashboard()["name"], quote=True)
+        page = _page.replace("<title>PF PrintFloor</title>", f"<title>{name}</title>") \
+            .replace('name="apple-mobile-web-app-title" content="PF PrintFloor"', f'name="apple-mobile-web-app-title" content="{name}"')
+        return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
+
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    async def manifest(request: Request):
+        """Lets the dashboard be installed as an app (iPad/iPhone: Share > Add to Home Screen)."""
+        name = mgr(request).dashboard()["name"]
+        icons = [{"src": f"/static/icons/icon-{n}.png", "sizes": f"{n}x{n}", "type": "image/png"} for n in (192, 512)]
+        icons.append({"src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png",
+                      "purpose": "maskable"})
+        return JSONResponse({"name": name, "short_name": name[:30], "id": "/", "start_url": "/", "scope": "/",
+                             "display": "standalone", "background_color": "#14191F", "theme_color": "#14191F",
+                             "icons": icons}, media_type="application/manifest+json",
+                            headers={"Cache-Control": "no-cache"})
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 

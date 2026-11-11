@@ -57,6 +57,8 @@
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
+  /* installed app on iPad/iPhone: keep clear of the status bar, rounded corners and home bar */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);

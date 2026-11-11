@@ -191,3 +191,17 @@ def test_stalled_live_stream_is_dropped_and_ends(client):
     for _ in range(501):                      # a tab that stopped reading fills its queue
         m._broadcast({"type": "ping"})
     assert not m.subscribed(q)                # dropped, so its stream ends and the browser reconnects
+
+
+def test_installable_app_manifest_uses_dashboard_name(client):
+    m = client.get("/manifest.webmanifest")
+    assert m.status_code == 200 and m.headers["content-type"].startswith("application/manifest+json")
+    assert m.json()["name"] == "PF PrintFloor" and m.json()["display"] == "standalone"
+    for icon in m.json()["icons"]:
+        assert client.get(icon["src"]).status_code == 200
+    assert client.get("/static/icons/icon-180.png").status_code == 200           # iOS home screen icon
+    client.put("/api/dashboard", json={"name": 'Shop "A" <1>'})
+    assert client.get("/manifest.webmanifest").json()["name"] == 'Shop "A" <1>'
+    page = client.get("/").text
+    assert "<title>Shop &quot;A&quot; &lt;1&gt;</title>" in page
+    assert 'name="apple-mobile-web-app-title" content="Shop &quot;A&quot; &lt;1&gt;"' in page
