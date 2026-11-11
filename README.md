@@ -266,6 +266,23 @@ These are deliberate rules or printer quirks that can look odd.
 - Without a linked account, enter the new code in Details → Edit (on the printer: Settings → WLAN / Network shows
   it).
 
+### Bambu printer on a new address
+
+- A new Wi-Fi network or DHCP lease can give a printer a **new IP address** (the card shows `unreachable` / `No route
+  to host`). Bambu printers announce their address on the network, and the dashboard follows a printer it knows
+  (same serial number) to the new one by itself. Details shows "changed from … on …".
+- Because the access code is sent to that address, it only moves when **all** of these hold: the announcement
+  came from the new address itself, the old address no longer answers, and the new address presents a certificate
+  issued to the printer's serial number. Otherwise it stays put (see the log) and you can change it in Details.
+- A host **name** (e.g. `p1.local`) is never replaced, only IP addresses. Printers away from this network (cloud
+  connection) aren't heard, so nothing changes for them.
+
+### Bambu account sign-in
+
+- When Bambu stops accepting the saved sign-in (anywhere: cover images, cloud connection, access-code recovery,
+  Add printer), the dashboard **remembers it**, also across restarts: the gear gets an orange dot and Settings →
+  Bambu account says to sign in again. Until then those cloud features are off. Signing in again clears it.
+
 ### Bambu cloud connection (remote printers)
 
 - Each Bambu has **Connection: Automatic / This network only / Bambu cloud only** (Details). Default: Automatic.

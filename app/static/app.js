@@ -1429,7 +1429,7 @@ function renderDetails() {
       ${kv([
         ["State", esc(st.connection ? (CONN_LABEL[st.connection] || "Online") : "")],
         ["Detail", esc(st.connection_detail)],
-        ["Address", esc(p.host)],
+        ["Address", `${esc(p.host)}${p.settings?.address_changed ? ` <small class="sub">(changed from ${esc(p.settings.address_changed.from)} on ${esc(fmtWhen(p.settings.address_changed.at))}: the printer announced its new address)</small>` : ""}`],
         ["Serial", esc(p.serial)],
         ["Firmware", `${esc(st.firmware)}${st.update_available ? ` <span class="upd-note">Update available: ${esc(st.update_available)}</span>` : ""}`],
         ["Last update", esc(st.updated_at ? new Date(st.updated_at).toLocaleString() : "")],

@@ -208,7 +208,8 @@ class BambuPrinter(PrinterBase):
         conn = MqttConnection(host, port, user, token, ssl_context=ctx)
         try:
             await conn.connect()
-        except AuthFailed:
+        except AuthFailed as e:
+            acct._rejected(e)                     # the whole app shows "sign in again" (and remembers it)
             raise AuthFailed("Bambu cloud refused the account login - link the account again") from None
         self._link = "cloud"
         try:

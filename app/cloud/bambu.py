@@ -228,6 +228,20 @@ class Account:
         self._uid: Optional[str] = None
         self._devices: tuple[Optional[float], list[dict]] = (None, [])     # (fetched at, list); None = never fetched
         self.mqtt_host_override: Optional[tuple[str, int]] = None     # tests
+        self.on_rejected = None     # called (from any thread) once when Bambu stops accepting the token
+
+    def _rejected(self, e: Exception) -> None:
+        """Bambu refused the saved sign-in. Remember it (the manager saves it and tells the browsers), so every
+        part of the app - and the next start - shows "sign in again" instead of quietly losing cloud features."""
+        first = self.state != "needs_login"
+        self.state, self.last_error = "needs_login", str(e)
+        if first:
+            log.warning("Bambu account sign-in rejected - sign in again (%s)", e)
+            if self.on_rejected:
+                try:
+                    self.on_rejected()
+                except Exception:  # noqa: BLE001
+                    log.exception("saving the rejected Bambu sign-in failed")
 
     # ---- cloud connection for printers away from the LAN (blocking: call via asyncio.to_thread) ----
     def mqtt_login(self) -> tuple[str, int, str, str]:
@@ -238,7 +252,7 @@ class Account:
             try:
                 self._uid = self.cloud.user_id()
             except TokenExpired as e:
-                self.state, self.last_error = "needs_login", str(e)
+                self._rejected(e)
                 raise
         host, port = self.mqtt_host_override or (MQTT_HOSTS.get(self.cloud.region, MQTT_HOSTS["global"]), 8883)
         return host, port, f"u_{self._uid}", self.cloud.token
@@ -253,7 +267,7 @@ class Account:
             try:
                 devs = self.cloud.devices()
             except TokenExpired as e:
-                self.state, self.last_error = "needs_login", str(e)
+                self._rejected(e)
                 return None
             except CloudError:
                 devs = []
@@ -276,8 +290,7 @@ class Account:
                 return None, f"cloud cover for task {task.get('id')} is not an image"
             return data, f"cloud task {task.get('id')} cover"
         except TokenExpired as e:
-            self.state, self.last_error = "needs_login", str(e)
-            log.warning("Bambu account token rejected - link the account again (%s)", e)
+            self._rejected(e)
             return None, "Bambu account token expired"
 
 
@@ -300,9 +313,17 @@ def account_from_store(store) -> Optional[Account]:
         return None
     acct = Account(BambuCloud(saved["token"], saved.get("region", "global")), saved.get("email", ""))
     exp = saved.get("expires")
-    if exp and exp < time.time():
+    if (exp and exp < time.time()) or saved.get("rejected_at"):
         acct.state = "needs_login"
     return acct
+
+
+def mark_rejected(store) -> None:
+    """Remember that Bambu refused the saved sign-in (cleared by signing in again: save_link rewrites it)."""
+    saved = dict(store.get_app_setting("bambu_cloud") or {})
+    if saved:
+        saved["rejected_at"] = time.time()
+        store.set_app_setting("bambu_cloud", saved)
 
 
 def save_link(store, email: str, cloud: BambuCloud) -> None:
