@@ -1,0 +1,868 @@
+{
+  "probe": {
+    "ip": "10.0.0.202",
+    "at": "2026-10-30T07:22:47"
+  },
+  "messages": [
+    {
+      "t": 0.1,
+      "payload": {
+        "Id": "979d4C788A4a78bC777A870F1A02867A",
+        "Data": {
+          "Cmd": 1,
+          "Data": {
+            "Ack": 0
+          },
+          "RequestID": "0956ab207da2ce3a",
+          "MainboardID": "0123456789abcdef0000000000000000",
+          "TimeStamp": 1793370169
+        },
+        "Topic": "sdcp/response/0123456789abcdef0000000000000000"
+      }
+    },
+    {
+      "t": 0.28,
+      "payload": {
+        "Attributes": {
+          "Name": "Centauri Carbon",
+          "MachineName": "Centauri Carbon",
+          "BrandName": "ELEGOO",
+          "ProtocolVersion": "V3.0.0",
+          "FirmwareVersion": "V1.4.49",
+          "XYZsize": "218.88x128.88x220",
+          "MainboardIP": "10.0.0.202",
+          "MainboardMAC": "02:00:00:00:00:01",
+          "MainboardID": "0123456789abcdef0000000000000000",
+          "SDCPStatus": 0,
+          "MaximumCloudSDCPSercicesAllowed": 0,
+          "NumberOfCloudSDCPServicesConnected": 0,
+          "NumberOfVideoStreamConnected": 0,
+          "MaximumVideoStreamAllowed": 4,
+          "NetworkStatus": "wlan",
+          "UsbDiskStatus": 1,
+          "Capabilities": [
+            "FILE_TRANSFER",
+            "PRINT_CONTROL",
+            "VIDEO_STREAM"
+          ],
+          "SupportFileType": [
+            "gcode"
+          ],
+          "DevicesStatus": {
+            "SgStatus": 1,
+            "ZMotorStatus": 1,
+            "XMotorStatus": 1,
+            "YMotorStatus": 1
+          },
+          "CameraStatus": 1,
+          "RemainingMemory": 6253957120,
+          "TLPNoCapPos": 0,
+          "TLPStartCapPos": 0,
+          "TLPInterLayers": 0
+        },
+        "MainboardID": "0123456789abcdef0000000000000000",
+        "TimeStamp": 1793370169,
+        "Topic": "sdcp/attributes/0123456789abcdef0000000000000000"
+      }
+    },
+    {
+      "t": 0.28,
+      "payload": {
+        "Id": "979d4C788A4a78bC777A870F1A02867A",
+        "Data": {
+          "Cmd": 0,
+          "Data": {
+            "Ack": 0
+          },
+          "RequestID": "89f93d6b31bc38fa",
+          "MainboardID": "0123456789abcdef0000000000000000",
+          "TimeStamp": 1793370169
+        },
+        "Topic": "sdcp/response/0123456789abcdef0000000000000000"
+      }
+    },
+    {
+      "t": 0.41,
+      "payload": {
+        "Status": {
+          "CurrentStatus": [
+            0
+          ],
+          "TimeLapseStatus": 0,
+          "PlatFormType": 0,
+          "AmsConnectStatus": 1,
+          "TempOfHotbed": 23.19083329397538,
+          "TempOfNozzle": 25.20073694000867,
+          "TempOfBox": 22.58659112797823,
+          "TempTargetHotbed": 0,
+          "TempTargetNozzle": 0,
+          "TempTargetBox": 0,
+          "CurrenCoord": "202.00,264.50,99.39",
+          "CurrentFanSpeed": {
+            "ModelFan": 0,
+            "AuxiliaryFan": 0,
+            "BoxFan": 0
+          },
+          "ZOffset": 1e-14,
+          "LightStatus": {
+            "SecondLight": 0,
+            "RgbLight": [
+              0,
+              0,
+              0
+            ]
+          },
+          "PrintInfo": {
+            "Status": 9,
+            "CurrentLayer": 143,
+            "TotalLayer": 143,
+            "CurrentTicks": 31083.580987447,
+            "TotalTicks": 33477,
+            "Filename": "",
+            "TaskId": "",
+            "PrintSpeedPct": 100,
+            "Progress": 0
+          }
+        },
+        "MainboardID": "0123456789abcdef0000000000000000",
+        "TimeStamp": 1793370170,
+        "Topic": "sdcp/status/0123456789abcdef0000000000000000"
+      }
+    },
+    {
+      "t": 0.42,
+      "payload": {
+        "Id": "979d4C788A4a78bC777A870F1A02867A",
+        "Data": {
+          "Cmd": 320,
+          "Data": {
+            "Ack": 0,
+            "HistoryData": [
+              "bcd3e4e6-4543-4562-814a-e6359bf81265",
+              "27df7973-6066-4eb0-bdff-71cd269e090e",
+              "2a68d267-7d7a-4e3b-b4e0-429675b30633",
+              "5f08a3d5-302e-4f60-b81a-5626d04d1ad0",
+              "0fa58358-8609-4de3-8fc4-426f9f00c862",
+              "94711dd7-c17e-4654-8682-1369c935462d",
+              "e1c02fae-f051-4548-b30c-d6bff8b1d793",
+              "e16e36bd-6681-4ece-8a83-e4a1b3789f0e",
+              "971ac5f8-bde5-48df-89fb-8b0515c31fe4",
+              "f5fcea49-a1c9-4a4b-b297-0c1f626e7532",
+              "67f426a7-7a96-4746-86ba-d0c497322a01"
+            ]
+          },
+          "RequestID": "dfc882dca25062e7",
+          "MainboardID": "0123456789abcdef0000000000000000",
+          "TimeStamp": 1793370170
+        },
+        "Topic": "sdcp/response/0123456789abcdef0000000000000000"
+      }
+    },
+    {
+      "t": 0.56,
+      "payload": {
+        "Id": "979d4C788A4a78bC777A870F1A02867A",
+        "Data": {
+          "Cmd": 324,
+          "Data": {
+            "active_canvas_id": 0,
+            "active_tray_id": -1,
+            "auto_refill": 1,
+            "canvas_list": [
+              {
+                "canvas_id": 0,
+                "connected": 1,
+                "tray_list": [
+                  {
+                    "tray_id": 0,
+                    "brand": "Generic",
+                    "filament_type": "PETG",
+                    "filament_name": "PETG",
+                    "filament_code": "0x00000",
+                    "filament_color": "#000000",
+                    "min_nozzle_temp": 230,
+                    "max_nozzle_temp": 260,
+                    "status": 1
+                  },
+                  {
+                    "tray_id": 1,
+                    "brand": "Generic",
+                    "filament_type": "PETG",
+                    "filament_name": "PETG",
+                    "filament_code": "0x00000",
+                    "filament_color": "#FFFFFF",
+                    "min_nozzle_temp": 230,
+                    "max_nozzle_temp": 260,
+                    "status": 1
+                  },
+                  {
+                    "tray_id": 2,
+                    "brand": "Generic",
+                    "filament_type": "PETG",
+                    "filament_name": "PETG",
+                    "filament_code": "0x00000",
+                    "filament_color": "#48A7FA",
+                    "min_nozzle_temp": 230,
+                    "max_nozzle_temp": 260,
+                    "status": 1
+                  },
+                  {
+                    "tray_id": 3,
+                    "brand": "Generic",
+                    "filament_type": "PETG",
+                    "filament_name": "PETG",
+                    "filament_code": "0x00000",
+                    "filament_color": "#F72221",
+                    "min_nozzle_temp": 230,
+                    "max_nozzle_temp": 260,
+                    "status": 1
+                  }
+                ]
+              }
+            ],
+            "Ack": 0
+          },
+          "RequestID": "e00c3512ed186df9",
+          "MainboardID": "0123456789abcdef0000000000000000",
+          "TimeStamp": 1793370170
+        },
+        "Topic": "sdcp/response/0123456789abcdef0000000000000000"
+      }
+    },
+    {
+      "t": 0.72,
+      "payload": {
+        "Id": "979d4C788A4a78bC777A870F1A02867A",
+        "Data": {
+          "Cmd": 321,
+          "Data": {
+            "Ack": 0,
+            "HistoryDetailList": [
+              {
+                "Thumbnail": "http://10.0.0.202/board-resource/history_image/bcd3e4e6-4543-4562-814a-e6359bf81265.png",
+                "TaskName": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+                "BeginTime": 1793318883,
+                "EndTime": 1793350293,
+                "TaskStatus": 1,
+                "SliceInformation": {
+                  "layer_height": 0,
+                  "total_layer_numbers": 143,
+                  "model_size_x": 0,
+                  "model_size_y": 0,
+                  "model_size_z": 0,
+                  "print_time": 31083.485354656004
+                },
+                "AlreadyPrintLayer": 143,
+                "TaskId": "bcd3e4e6-4543-4562-814a-e6359bf81265",
+                "MD5": "00000000000000000000000000000abc",
+                "TimeLapseVideoStatus": 0,
+                "TimeLapseVideoUrl": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+                "ErrorStatusReason": 0
+              },
+              {
+                "Thumbnail": "http://10.0.0.202/board-resource/history_image/27df7973-6066-4eb0-bdff-71cd269e090e.png",
+                "TaskName": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+                "BeginTime": 1793284975,
+                "EndTime": 1793316454,
+                "TaskStatus": 1,
+                "SliceInformation": {
+                  "layer_height": 0,
+                  "total_layer_numbers": 143,
+                  "model_size_x": 0,
+                  "model_size_y": 0,
+                  "model_size_z": 0,
+                  "print_time": 31086.193259905995
+                },
+                "AlreadyPrintLayer": 143,
+                "TaskId": "27df7973-6066-4eb0-bdff-71cd269e090e",
+                "MD5": "00000000000000000000000000000abc",
+                "TimeLapseVideoStatus": 0,
+                "TimeLapseVideoUrl": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+                "ErrorStatusReason": 0
+              },
+              {
+                "Thumbnail": "http://10.0.0.202/board-resource/history_image/2a68d267-7d7a-4e3b-b4e0-429675b30633.png",
+                "TaskName": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+                "BeginTime": 1793240113,
+                "EndTime": 1793271401,
+                "TaskStatus": 1,
+                "SliceInformation": {
+                  "layer_height": 0,
+                  "total_layer_numbers": 143,
+                  "model_size_x": 0,
+                  "model_size_y": 0,
+                  "model_size_z": 0,
+                  "print_time": 31136.883869264
+                },
+                "AlreadyPrintLayer": 143,
+                "TaskId": "2a68d267-7d7a-4e3b-b4e0-429675b30633",
+                "MD5": "00000000000000000000000000000abc",
+                "TimeLapseVideoStatus": 0,
+                "TimeLapseVideoUrl": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+                "ErrorStatusReason": 0
+              }
+            ]
+          },
+          "RequestID": "76037c9a6c824987",
+          "MainboardID": "0123456789abcdef0000000000000000",
+          "TimeStamp": 1793370170
+        },
+        "Topic": "sdcp/response/0123456789abcdef0000000000000000"
+      }
+    },
+    {
+      "t": 0.84,
+      "payload": {
+        "Id": "979d4C788A4a78bC777A870F1A02867A",
+        "Data": {
+          "Cmd": 258,
+          "Data": {
+            "Ack": 0,
+            "FileList": [
+              {
+                "name": "/local//ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+                "type": 1,
+                "CreateTime": 1793229062,
+                "FileSize": 60937084,
+                "LayerHeight": 0,
+                "TotalLayers": 143,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_Santas_Helper_LightFury_Generic PETG _0.2_13h54m.gcode",
+                "type": 1,
+                "CreateTime": 1793133884,
+                "FileSize": 97923447,
+                "LayerHeight": 0,
+                "TotalLayers": 104,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_3DBenchy_Elegoo PETG _0.2_55m23s.gcode",
+                "type": 1,
+                "CreateTime": 1793125724,
+                "FileSize": 2353820,
+                "LayerHeight": 0,
+                "TotalLayers": 240,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_OtterEarrings_Elegoo PLA _0.2_19m31s.gcode",
+                "type": 1,
+                "CreateTime": 1793088015,
+                "FileSize": 721222,
+                "LayerHeight": 0,
+                "TotalLayers": 17,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_Scraper_Elegoo PLA _0.2_1h15m.gcode",
+                "type": 1,
+                "CreateTime": 1793088013,
+                "FileSize": 3346537,
+                "LayerHeight": 0,
+                "TotalLayers": 225,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_EiffelTower_Elegoo PLA _0.2_2h2m.gcode",
+                "type": 1,
+                "CreateTime": 1793088009,
+                "FileSize": 9030241,
+                "LayerHeight": 0,
+                "TotalLayers": 605,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_Vase_Elegoo PLA _0.12_5h49m.gcode",
+                "type": 1,
+                "CreateTime": 1793088010,
+                "FileSize": 63058621,
+                "LayerHeight": 0,
+                "TotalLayers": 1630,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_CC Cover Holder_Elegoo PLA _0.12_2h29m.gcode",
+                "type": 1,
+                "CreateTime": 1793088008,
+                "FileSize": 4102848,
+                "LayerHeight": 0,
+                "TotalLayers": 129,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_Spool Holder Module -New_Elegoo PLA _0.2_1h41m.gcode",
+                "type": 1,
+                "CreateTime": 1793088006,
+                "FileSize": 9225900,
+                "LayerHeight": 0,
+                "TotalLayers": 432,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_CC MINI_Elegoo PLA _0.2_2h2m.gcode",
+                "type": 1,
+                "CreateTime": 1793088017,
+                "FileSize": 3712286,
+                "LayerHeight": 0,
+                "TotalLayers": 536,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_Spool adapter_Elegoo PLA _0.2_1h19m.gcode",
+                "type": 1,
+                "CreateTime": 1793088012,
+                "FileSize": 6930803,
+                "LayerHeight": 0,
+                "TotalLayers": 300,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_PTFE Tube Tool_Elegoo PLA _0.2_21m9s.gcode",
+                "type": 1,
+                "CreateTime": 1793088014,
+                "FileSize": 1484581,
+                "LayerHeight": 0,
+                "TotalLayers": 250,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_Flexible Filament Printing Adapter_Elegoo PLA _0.2_1h32m.gcode",
+                "type": 1,
+                "CreateTime": 1793088007,
+                "FileSize": 14157185,
+                "LayerHeight": 0,
+                "TotalLayers": 823,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_E3LEGOOA(8)_Elegoo PLA _0.2_20m34s.gcode",
+                "type": 1,
+                "CreateTime": 1793088016,
+                "FileSize": 804082,
+                "LayerHeight": 0,
+                "TotalLayers": 30,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_The Buddha_Elegoo PLA _0.2_25m43s.gcode",
+                "type": 1,
+                "CreateTime": 1793088011,
+                "FileSize": 3816523,
+                "LayerHeight": 0,
+                "TotalLayers": 227,
+                "EstFilamentLength": 0
+              },
+              {
+                "name": "/local//ECC_0.4_3DBenchy_Elegoo PLA _0.2_46m51s.gcode",
+                "type": 1,
+                "CreateTime": 1793088018,
+                "FileSize": 3890390,
+                "LayerHeight": 0,
+                "TotalLayers": 240,
+                "EstFilamentLength": 0
+              }
+            ]
+          },
+          "RequestID": "1ebe2758b4762987",
+          "MainboardID": "0123456789abcdef0000000000000000",
+          "TimeStamp": 1793370170
+        },
+        "Topic": "sdcp/response/0123456789abcdef0000000000000000"
+      }
+    }
+  ],
+  "discovery": {
+    "mode": "unicast",
+    "reply": {
+      "Id": "979d4C788A4a78bC777A870F1A02867A",
+      "Data": {
+        "Name": "Centauri Carbon",
+        "MachineName": "Centauri Carbon",
+        "BrandName": "ELEGOO",
+        "MainboardIP": "10.0.0.202",
+        "MainboardID": "0123456789abcdef0000000000000000",
+        "ProtocolVersion": "V3.0.0",
+        "FirmwareVersion": "V1.4.49"
+      }
+    }
+  },
+  "mainboard_id": "0123456789abcdef0000000000000000",
+  "status": {
+    "CurrentStatus": [
+      0
+    ],
+    "TimeLapseStatus": 0,
+    "PlatFormType": 0,
+    "AmsConnectStatus": 1,
+    "TempOfHotbed": 23.19083329397538,
+    "TempOfNozzle": 25.20073694000867,
+    "TempOfBox": 22.58659112797823,
+    "TempTargetHotbed": 0,
+    "TempTargetNozzle": 0,
+    "TempTargetBox": 0,
+    "CurrenCoord": "202.00,264.50,99.39",
+    "CurrentFanSpeed": {
+      "ModelFan": 0,
+      "AuxiliaryFan": 0,
+      "BoxFan": 0
+    },
+    "ZOffset": 1e-14,
+    "LightStatus": {
+      "SecondLight": 0,
+      "RgbLight": [
+        0,
+        0,
+        0
+      ]
+    },
+    "PrintInfo": {
+      "Status": 9,
+      "CurrentLayer": 143,
+      "TotalLayer": 143,
+      "CurrentTicks": 31083.580987447,
+      "TotalTicks": 33477,
+      "Filename": "",
+      "TaskId": "",
+      "PrintSpeedPct": 100,
+      "Progress": 0
+    }
+  },
+  "attributes": {
+    "Name": "Centauri Carbon",
+    "MachineName": "Centauri Carbon",
+    "BrandName": "ELEGOO",
+    "ProtocolVersion": "V3.0.0",
+    "FirmwareVersion": "V1.4.49",
+    "XYZsize": "218.88x128.88x220",
+    "MainboardIP": "10.0.0.202",
+    "MainboardMAC": "02:00:00:00:00:01",
+    "MainboardID": "0123456789abcdef0000000000000000",
+    "SDCPStatus": 0,
+    "MaximumCloudSDCPSercicesAllowed": 0,
+    "NumberOfCloudSDCPServicesConnected": 0,
+    "NumberOfVideoStreamConnected": 0,
+    "MaximumVideoStreamAllowed": 4,
+    "NetworkStatus": "wlan",
+    "UsbDiskStatus": 1,
+    "Capabilities": [
+      "FILE_TRANSFER",
+      "PRINT_CONTROL",
+      "VIDEO_STREAM"
+    ],
+    "SupportFileType": [
+      "gcode"
+    ],
+    "DevicesStatus": {
+      "SgStatus": 1,
+      "ZMotorStatus": 1,
+      "XMotorStatus": 1,
+      "YMotorStatus": 1
+    },
+    "CameraStatus": 1,
+    "RemainingMemory": 6253957120,
+    "TLPNoCapPos": 0,
+    "TLPStartCapPos": 0,
+    "TLPInterLayers": 0
+  },
+  "responses": {
+    "1": {
+      "Ack": 0
+    },
+    "0": {
+      "Ack": 0
+    },
+    "320": {
+      "Ack": 0,
+      "HistoryData": [
+        "bcd3e4e6-4543-4562-814a-e6359bf81265",
+        "27df7973-6066-4eb0-bdff-71cd269e090e",
+        "2a68d267-7d7a-4e3b-b4e0-429675b30633",
+        "5f08a3d5-302e-4f60-b81a-5626d04d1ad0",
+        "0fa58358-8609-4de3-8fc4-426f9f00c862",
+        "94711dd7-c17e-4654-8682-1369c935462d",
+        "e1c02fae-f051-4548-b30c-d6bff8b1d793",
+        "e16e36bd-6681-4ece-8a83-e4a1b3789f0e",
+        "971ac5f8-bde5-48df-89fb-8b0515c31fe4",
+        "f5fcea49-a1c9-4a4b-b297-0c1f626e7532",
+        "67f426a7-7a96-4746-86ba-d0c497322a01"
+      ]
+    },
+    "324": {
+      "active_canvas_id": 0,
+      "active_tray_id": -1,
+      "auto_refill": 1,
+      "canvas_list": [
+        {
+          "canvas_id": 0,
+          "connected": 1,
+          "tray_list": [
+            {
+              "tray_id": 0,
+              "brand": "Generic",
+              "filament_type": "PETG",
+              "filament_name": "PETG",
+              "filament_code": "0x00000",
+              "filament_color": "#000000",
+              "min_nozzle_temp": 230,
+              "max_nozzle_temp": 260,
+              "status": 1
+            },
+            {
+              "tray_id": 1,
+              "brand": "Generic",
+              "filament_type": "PETG",
+              "filament_name": "PETG",
+              "filament_code": "0x00000",
+              "filament_color": "#FFFFFF",
+              "min_nozzle_temp": 230,
+              "max_nozzle_temp": 260,
+              "status": 1
+            },
+            {
+              "tray_id": 2,
+              "brand": "Generic",
+              "filament_type": "PETG",
+              "filament_name": "PETG",
+              "filament_code": "0x00000",
+              "filament_color": "#48A7FA",
+              "min_nozzle_temp": 230,
+              "max_nozzle_temp": 260,
+              "status": 1
+            },
+            {
+              "tray_id": 3,
+              "brand": "Generic",
+              "filament_type": "PETG",
+              "filament_name": "PETG",
+              "filament_code": "0x00000",
+              "filament_color": "#F72221",
+              "min_nozzle_temp": 230,
+              "max_nozzle_temp": 260,
+              "status": 1
+            }
+          ]
+        }
+      ],
+      "Ack": 0
+    },
+    "321": {
+      "Ack": 0,
+      "HistoryDetailList": [
+        {
+          "Thumbnail": "http://10.0.0.202/board-resource/history_image/bcd3e4e6-4543-4562-814a-e6359bf81265.png",
+          "TaskName": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+          "BeginTime": 1793318883,
+          "EndTime": 1793350293,
+          "TaskStatus": 1,
+          "SliceInformation": {
+            "layer_height": 0,
+            "total_layer_numbers": 143,
+            "model_size_x": 0,
+            "model_size_y": 0,
+            "model_size_z": 0,
+            "print_time": 31083.485354656004
+          },
+          "AlreadyPrintLayer": 143,
+          "TaskId": "bcd3e4e6-4543-4562-814a-e6359bf81265",
+          "MD5": "00000000000000000000000000000abc",
+          "TimeLapseVideoStatus": 0,
+          "TimeLapseVideoUrl": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+          "ErrorStatusReason": 0
+        },
+        {
+          "Thumbnail": "http://10.0.0.202/board-resource/history_image/27df7973-6066-4eb0-bdff-71cd269e090e.png",
+          "TaskName": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+          "BeginTime": 1793284975,
+          "EndTime": 1793316454,
+          "TaskStatus": 1,
+          "SliceInformation": {
+            "layer_height": 0,
+            "total_layer_numbers": 143,
+            "model_size_x": 0,
+            "model_size_y": 0,
+            "model_size_z": 0,
+            "print_time": 31086.193259905995
+          },
+          "AlreadyPrintLayer": 143,
+          "TaskId": "27df7973-6066-4eb0-bdff-71cd269e090e",
+          "MD5": "00000000000000000000000000000abc",
+          "TimeLapseVideoStatus": 0,
+          "TimeLapseVideoUrl": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+          "ErrorStatusReason": 0
+        },
+        {
+          "Thumbnail": "http://10.0.0.202/board-resource/history_image/2a68d267-7d7a-4e3b-b4e0-429675b30633.png",
+          "TaskName": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+          "BeginTime": 1793240113,
+          "EndTime": 1793271401,
+          "TaskStatus": 1,
+          "SliceInformation": {
+            "layer_height": 0,
+            "total_layer_numbers": 143,
+            "model_size_x": 0,
+            "model_size_y": 0,
+            "model_size_z": 0,
+            "print_time": 31136.883869264
+          },
+          "AlreadyPrintLayer": 143,
+          "TaskId": "2a68d267-7d7a-4e3b-b4e0-429675b30633",
+          "MD5": "00000000000000000000000000000abc",
+          "TimeLapseVideoStatus": 0,
+          "TimeLapseVideoUrl": "/local/ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+          "ErrorStatusReason": 0
+        }
+      ]
+    },
+    "258": {
+      "Ack": 0,
+      "FileList": [
+        {
+          "name": "/local//ECC_0.4_elegooLight Fury Dragons 2026-ALL VERSIONS-MULTICOLOR_Generic PETG _0.2_9h18m.gcode",
+          "type": 1,
+          "CreateTime": 1793229062,
+          "FileSize": 60937084,
+          "LayerHeight": 0,
+          "TotalLayers": 143,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_Santas_Helper_LightFury_Generic PETG _0.2_13h54m.gcode",
+          "type": 1,
+          "CreateTime": 1793133884,
+          "FileSize": 97923447,
+          "LayerHeight": 0,
+          "TotalLayers": 104,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_3DBenchy_Elegoo PETG _0.2_55m23s.gcode",
+          "type": 1,
+          "CreateTime": 1793125724,
+          "FileSize": 2353820,
+          "LayerHeight": 0,
+          "TotalLayers": 240,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_OtterEarrings_Elegoo PLA _0.2_19m31s.gcode",
+          "type": 1,
+          "CreateTime": 1793088015,
+          "FileSize": 721222,
+          "LayerHeight": 0,
+          "TotalLayers": 17,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_Scraper_Elegoo PLA _0.2_1h15m.gcode",
+          "type": 1,
+          "CreateTime": 1793088013,
+          "FileSize": 3346537,
+          "LayerHeight": 0,
+          "TotalLayers": 225,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_EiffelTower_Elegoo PLA _0.2_2h2m.gcode",
+          "type": 1,
+          "CreateTime": 1793088009,
+          "FileSize": 9030241,
+          "LayerHeight": 0,
+          "TotalLayers": 605,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_Vase_Elegoo PLA _0.12_5h49m.gcode",
+          "type": 1,
+          "CreateTime": 1793088010,
+          "FileSize": 63058621,
+          "LayerHeight": 0,
+          "TotalLayers": 1630,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_CC Cover Holder_Elegoo PLA _0.12_2h29m.gcode",
+          "type": 1,
+          "CreateTime": 1793088008,
+          "FileSize": 4102848,
+          "LayerHeight": 0,
+          "TotalLayers": 129,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_Spool Holder Module -New_Elegoo PLA _0.2_1h41m.gcode",
+          "type": 1,
+          "CreateTime": 1793088006,
+          "FileSize": 9225900,
+          "LayerHeight": 0,
+          "TotalLayers": 432,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_CC MINI_Elegoo PLA _0.2_2h2m.gcode",
+          "type": 1,
+          "CreateTime": 1793088017,
+          "FileSize": 3712286,
+          "LayerHeight": 0,
+          "TotalLayers": 536,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_Spool adapter_Elegoo PLA _0.2_1h19m.gcode",
+          "type": 1,
+          "CreateTime": 1793088012,
+          "FileSize": 6930803,
+          "LayerHeight": 0,
+          "TotalLayers": 300,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_PTFE Tube Tool_Elegoo PLA _0.2_21m9s.gcode",
+          "type": 1,
+          "CreateTime": 1793088014,
+          "FileSize": 1484581,
+          "LayerHeight": 0,
+          "TotalLayers": 250,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_Flexible Filament Printing Adapter_Elegoo PLA _0.2_1h32m.gcode",
+          "type": 1,
+          "CreateTime": 1793088007,
+          "FileSize": 14157185,
+          "LayerHeight": 0,
+          "TotalLayers": 823,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_E3LEGOOA(8)_Elegoo PLA _0.2_20m34s.gcode",
+          "type": 1,
+          "CreateTime": 1793088016,
+          "FileSize": 804082,
+          "LayerHeight": 0,
+          "TotalLayers": 30,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_The Buddha_Elegoo PLA _0.2_25m43s.gcode",
+          "type": 1,
+          "CreateTime": 1793088011,
+          "FileSize": 3816523,
+          "LayerHeight": 0,
+          "TotalLayers": 227,
+          "EstFilamentLength": 0
+        },
+        {
+          "name": "/local//ECC_0.4_3DBenchy_Elegoo PLA _0.2_46m51s.gcode",
+          "type": 1,
+          "CreateTime": 1793088018,
+          "FileSize": 3890390,
+          "LayerHeight": 0,
+          "TotalLayers": 240,
+          "EstFilamentLength": 0
+        }
+      ]
+    }
+  }
+}

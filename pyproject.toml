@@ -1,0 +1,15 @@
+[project]
+name = "pf-printfloor"
+version = "1.0.0"
+description = "PF PrintFloor (Pomeroy Family PrintFloor): a status-only web dashboard for Bambu Lab, Snapmaker U1 / Klipper and Elegoo printers"
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+# Avoids cache-folder permission errors on network drives (seen as WinError 5).
+addopts = "-p no:cacheprovider"
+# pyftpdlib (test-only fake FTPS server) imports deprecated asyncore/asynchat on Python 3.11
+filterwarnings = ["ignore::DeprecationWarning:asynchat", "ignore::DeprecationWarning:pyftpdlib.*"]

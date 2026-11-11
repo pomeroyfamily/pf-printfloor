@@ -1,0 +1,270 @@
+{
+ "probe": {
+  "ip": "10.0.0.71",
+  "serial": "0309C9000000016",
+  "serial_source": "TLS certificate",
+  "seconds": 60.0,
+  "at": "20261029-091843"
+ },
+ "version": {
+  "command": "get_version",
+  "sequence_id": "2",
+  "module": [
+   {
+    "name": "ota",
+    "sw_ver": "01.08.01.00",
+    "hw_ver": "OTA",
+    "loader_ver": "00.00.00.00",
+    "sn": "0309C9000000016",
+    "product_name": "Bambu Lab A1 mini",
+    "visible": true,
+    "flag": 3
+   },
+   {
+    "name": "esp32",
+    "sw_ver": "01.16.41.96",
+    "hw_ver": "AP07",
+    "loader_ver": "00.00.00.00",
+    "sn": "0309C9000000016",
+    "product_name": "",
+    "visible": false,
+    "flag": 0
+   },
+   {
+    "name": "mc",
+    "sw_ver": "00.01.36.14",
+    "hw_ver": "MC02",
+    "loader_ver": "00.00.00.32",
+    "sn": "03E069000000020",
+    "product_name": "",
+    "visible": false,
+    "flag": 0
+   },
+   {
+    "name": "th",
+    "sw_ver": "00.01.07.73",
+    "hw_ver": "TH03",
+    "loader_ver": "00.00.00.26",
+    "sn": "03B069000000018",
+    "product_name": "",
+    "visible": false,
+    "flag": 0
+   },
+   {
+    "name": "ams/0",
+    "sw_ver": "01.00.06.87",
+    "hw_ver": "AMS08",
+    "loader_ver": "00.00.00.00",
+    "sn": "006009000000006",
+    "product_name": "AMS (1)",
+    "visible": true,
+    "flag": 0
+   }
+  ],
+  "result": "success",
+  "reason": ""
+ },
+ "merged_state": {
+  "nozzle_temper": 22.03125,
+  "nozzle_target_temper": 0,
+  "bed_temper": 22.28125,
+  "bed_target_temper": 0,
+  "chamber_temper": 5,
+  "mc_print_stage": "1",
+  "heatbreak_fan_speed": "8",
+  "cooling_fan_speed": "0",
+  "big_fan1_speed": "0",
+  "big_fan2_speed": "0",
+  "mc_percent": 0,
+  "mc_remaining_time": 491,
+  "ams_status": 0,
+  "ams_rfid_status": 0,
+  "hw_switch_state": 0,
+  "spd_mag": 100,
+  "spd_lvl": 2,
+  "print_error": 0,
+  "lifecycle": "product",
+  "wifi_signal": "-39dBm",
+  "gcode_state": "FAILED",
+  "gcode_file_prepare_percent": "100",
+  "queue_number": 0,
+  "queue_total": 0,
+  "queue_est": 0,
+  "queue_sts": 0,
+  "project_id": "1000000002",
+  "profile_id": "1100000002",
+  "task_id": "1000000002",
+  "subtask_id": "1000000002",
+  "subtask_name": "Santas_Helper_LightFury",
+  "gcode_file": "",
+  "stg": [],
+  "stg_cur": 255,
+  "print_type": "idle",
+  "home_flag": 577717648,
+  "mc_print_line_number": "0",
+  "mc_print_sub_stage": 0,
+  "sdcard": true,
+  "force_upgrade": false,
+  "mess_production_state": "active",
+  "layer_num": 7,
+  "total_layer_num": 104,
+  "s_obj": [],
+  "filam_bak": [],
+  "fan_gear": 0,
+  "nozzle_diameter": "0.4",
+  "nozzle_type": "stainless_steel",
+  "cali_version": 0,
+  "k": "0.0721",
+  "flag3": 221855,
+  "online": {
+   "ahb": false,
+   "rfid": false,
+   "version": 1787697401
+  },
+  "ipcam": {
+   "ipcam_dev": "1",
+   "ipcam_record": "enable",
+   "timelapse": "disable",
+   "resolution": "1080p",
+   "tutk_server": "disable",
+   "mode_bits": 3
+  },
+  "upload": {
+   "status": "idle",
+   "progress": 0,
+   "message": ""
+  },
+  "net": {
+   "conf": 16,
+   "info": [
+    {
+     "ip": 1191291072,
+     "mask": 16777215
+    },
+    {
+     "ip": 0,
+     "mask": 0
+    }
+   ]
+  },
+  "upgrade_state": {
+   "sequence_id": 0,
+   "progress": "100",
+   "status": "UPGRADE_SUCCESS",
+   "consistency_request": false,
+   "dis_state": 3,
+   "err_code": 0,
+   "force_upgrade": false,
+   "message": "update success",
+   "module": "ams/0",
+   "new_version_state": 2,
+   "cur_state_code": 0,
+   "idx2": 419472576,
+   "new_ver_list": [],
+   "mc_for_ams_firmware": {
+    "current_run_firmware_id": 1,
+    "current_firmware_id": 1,
+    "status": "IDLE",
+    "firmware": [
+     {
+      "id": 0,
+      "name": "AMS Lite"
+     },
+     {
+      "id": 1,
+      "name": "AMS/AMS 2 Pro/AMS HT"
+     }
+    ]
+   }
+  },
+  "hms": [
+   {
+    "attr": 50338304,
+    "code": 131073,
+    "action": 0,
+    "timestamp": 1793237888
+   },
+   {
+    "attr": 50332160,
+    "code": 65545,
+    "action": 0,
+    "timestamp": 1793240349
+   }
+  ],
+  "ams": {
+   "ams": [
+    {
+     "chip_id": "9458353135360a0053373235fffffff",
+     "ams_id": "006009000000006",
+     "check": 1,
+     "id": "0",
+     "humidity": "5",
+     "humidity_raw": "17",
+     "temp": "28.7",
+     "dry_time": 0,
+     "info": "1001",
+     "tray": [
+      {
+       "id": "0"
+      },
+      {
+       "id": "1"
+      },
+      {
+       "id": "2"
+      },
+      {
+       "id": "3"
+      }
+     ]
+    }
+   ],
+   "ams_exist_bits": "1",
+   "tray_exist_bits": "0",
+   "tray_is_bbl_bits": "0",
+   "tray_tar": "255",
+   "tray_now": "255",
+   "tray_pre": "255",
+   "tray_read_done_bits": "0",
+   "tray_reading_bits": "0",
+   "version": 413,
+   "insert_flag": true,
+   "power_on_flag": false
+  },
+  "vt_tray": {
+   "id": "254",
+   "tag_uid": "0000000000000000",
+   "tray_id_name": "",
+   "tray_info_idx": "",
+   "tray_type": "",
+   "tray_sub_brands": "",
+   "tray_color": "FFFFFF00",
+   "tray_weight": "0",
+   "tray_diameter": "0.00",
+   "tray_temp": "0",
+   "tray_time": "0",
+   "bed_temp_type": "0",
+   "bed_temp": "0",
+   "nozzle_temp_max": "0",
+   "nozzle_temp_min": "0",
+   "xcam_info": "000000000000000000000000",
+   "tray_uuid": "00000000000000000000000000000000",
+   "remain": 0,
+   "k": 0.03999999910593033,
+   "n": 1,
+   "cali_idx": -1
+  },
+  "lights_report": [
+   {
+    "node": "chamber_light",
+    "mode": "on"
+   }
+  ],
+  "xcam": {
+   "buildplate_marker_detector": false
+  },
+  "command": "push_status",
+  "msg": 1,
+  "sequence_id": "21740"
+ }
+}

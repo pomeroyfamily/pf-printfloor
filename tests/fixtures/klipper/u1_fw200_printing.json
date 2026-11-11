@@ -1,0 +1,212 @@
+{
+ "_note": "Reconstructed from u1_probe output on U1-A (10.0.0.107, fw 2.0.0) 2026-10-28. Values are real; object layout follows Moonraker docs. Replace with the raw u1_107_*.json dump when available.",
+ "server_info": {
+  "klippy_connected": true,
+  "klippy_state": "ready",
+  "moonraker_version": "2.0.0"
+ },
+ "printer_info": {
+  "state": "ready",
+  "hostname": "lava",
+  "software_version": "2.0.0.205_20260914173503"
+ },
+ "system_info": {
+  "product_info": {
+   "device_name": "U1-A",
+   "machine_type": "Snapmaker U1",
+   "serial_number": "8110000000000000TEST",
+   "firmware_version": "2.0.0"
+  }
+ },
+ "objects": [
+  "webhooks",
+  "configfile",
+  "print_stats",
+  "virtual_sdcard",
+  "toolhead",
+  "heaters",
+  "print_task_config",
+  "idle_timeout",
+  "gcode_move",
+  "heater_bed",
+  "temperature_sensor cavity",
+  "extruder",
+  "extruder1",
+  "extruder2",
+  "extruder3",
+  "fan_generic cavity_fan",
+  "heater_fan power_fan",
+  "fan",
+  "heater_fan e0_nozzle_fan",
+  "fan_generic e1_fan",
+  "heater_fan e1_nozzle_fan",
+  "fan_generic e2_fan",
+  "heater_fan e2_nozzle_fan",
+  "fan_generic e3_fan",
+  "heater_fan e3_nozzle_fan"
+ ],
+ "available_sensors": [
+  "heater_bed",
+  "temperature_sensor cavity",
+  "extruder",
+  "extruder1",
+  "extruder2",
+  "extruder3"
+ ],
+ "status": {
+  "print_stats": {
+   "state": "printing",
+   "filename": "LTR ~ LEG THIGH RIGHT_PETG_1d6h32m.gcode",
+   "print_duration": 88980.0,
+   "total_duration": 89500.0,
+   "message": "",
+   "info": {
+    "current_layer": 585,
+    "total_layer": 911
+   }
+  },
+  "virtual_sdcard": {
+   "progress": 0.82,
+   "is_active": true,
+   "file_position": 1
+  },
+  "toolhead": {
+   "extruder": "extruder"
+  },
+  "webhooks": {
+   "state": "ready",
+   "state_message": "Printer is ready"
+  },
+  "print_task_config": {
+   "filament_vendor": [
+    "Generic",
+    "Generic",
+    "Generic",
+    "Generic"
+   ],
+   "filament_type": [
+    "PETG",
+    "PETG",
+    "PETG",
+    "PLA"
+   ],
+   "filament_sub_type": [
+    "",
+    "HF",
+    "HF",
+    ""
+   ],
+   "filament_color_rgba": [
+    "1E88E5FF",
+    "E72F1DFF",
+    "000000FF",
+    "FFFFFFFF"
+   ],
+   "filament_exist": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "filament_official": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "extruder_map_table": [
+    1,
+    2,
+    0,
+    3,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "heater_bed": {
+   "temperature": 80.0,
+   "target": 80.0
+  },
+  "temperature_sensor cavity": {
+   "temperature": 44.0
+  },
+  "extruder": {
+   "temperature": 230.0,
+   "target": 230.0
+  },
+  "extruder1": {
+   "temperature": 191.0,
+   "target": 80.0
+  },
+  "extruder2": {
+   "temperature": 80.0,
+   "target": 80.0
+  },
+  "extruder3": {
+   "temperature": 41.0,
+   "target": 0.0
+  },
+  "fan_generic cavity_fan": {
+   "speed": 0
+  },
+  "heater_fan power_fan": {
+   "speed": 0.6
+  },
+  "fan": {
+   "speed": 0.9
+  },
+  "heater_fan e0_nozzle_fan": {
+   "speed": 1
+  },
+  "fan_generic e1_fan": {
+   "speed": 0
+  },
+  "heater_fan e1_nozzle_fan": {
+   "speed": 1
+  },
+  "fan_generic e2_fan": {
+   "speed": 0
+  },
+  "heater_fan e2_nozzle_fan": {
+   "speed": 1
+  },
+  "fan_generic e3_fan": {
+   "speed": 0
+  },
+  "heater_fan e3_nozzle_fan": {
+   "speed": 0
+  }
+ },
+ "file_metadata": {
+  "filename": "LTR ~ LEG THIGH RIGHT_PETG_1d6h32m.gcode",
+  "size": 48211234,
+  "modified": 1761700000.5,
+  "estimated_time": 109860,
+  "layer_height": 0.2,
+  "object_height": 182.2,
+  "filament_type": "PETG;PETG;PETG;PETG;PETG;PETG;PLA",
+  "filament_name": "Generic PETG HF;Generic PETG HF;Generic PLA",
+  "thumbnails": [
+   {
+    "width": 96,
+    "height": 96,
+    "size": 5000,
+    "relative_path": ".thumbs/LTR ~ LEG THIGH RIGHT_PETG_1d6h32m-96x96.png"
+   },
+   {
+    "width": 48,
+    "height": 48,
+    "size": 2000,
+    "relative_path": ".thumbs/LTR ~ LEG THIGH RIGHT_PETG_1d6h32m-48x48.png"
+   },
+   {
+    "width": 300,
+    "height": 300,
+    "size": 30000,
+    "relative_path": ".thumbs/LTR ~ LEG THIGH RIGHT_PETG_1d6h32m-300x300.png"
+   }
+  ]
+ }
+}

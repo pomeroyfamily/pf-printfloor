@@ -1,0 +1,354 @@
+{
+ "probe": {
+  "ip": "10.0.0.142",
+  "serial": "039199000000017",
+  "serial_source": "TLS certificate",
+  "seconds": 60.0,
+  "at": "20261029-091657"
+ },
+ "version": {
+  "command": "get_version",
+  "sequence_id": "2",
+  "module": [
+   {
+    "name": "ota",
+    "sw_ver": "01.08.01.00",
+    "hw_ver": "OTA",
+    "loader_ver": "00.00.00.00",
+    "sn": "039199000000017",
+    "product_name": "Bambu Lab A1",
+    "visible": true,
+    "flag": 3
+   },
+   {
+    "name": "esp32",
+    "sw_ver": "01.16.33.15",
+    "hw_ver": "AP05",
+    "loader_ver": "00.00.00.00",
+    "sn": "039199000000017",
+    "product_name": "",
+    "visible": false,
+    "flag": 0
+   },
+   {
+    "name": "mc",
+    "sw_ver": "00.01.36.16",
+    "hw_ver": "MC02",
+    "loader_ver": "00.00.00.32",
+    "sn": "045069000000021",
+    "product_name": "",
+    "visible": false,
+    "flag": 0
+   },
+   {
+    "name": "th",
+    "sw_ver": "00.01.07.70",
+    "hw_ver": "TH01",
+    "loader_ver": "00.00.00.26",
+    "sn": "03B069000000019",
+    "product_name": "",
+    "visible": false,
+    "flag": 0
+   },
+   {
+    "name": "ams/0",
+    "sw_ver": "01.00.06.87",
+    "hw_ver": "AMS08",
+    "loader_ver": "00.00.00.00",
+    "sn": "006009000000003",
+    "product_name": "AMS (1)",
+    "visible": true,
+    "flag": 0
+   }
+  ],
+  "result": "success",
+  "reason": ""
+ },
+ "merged_state": {
+  "nozzle_temper": 255.125,
+  "nozzle_target_temper": 255,
+  "bed_temper": 79.90625,
+  "bed_target_temper": 80,
+  "chamber_temper": 5,
+  "mc_print_stage": "2",
+  "heatbreak_fan_speed": "9",
+  "cooling_fan_speed": "0",
+  "big_fan1_speed": "0",
+  "big_fan2_speed": "0",
+  "mc_percent": 15,
+  "mc_remaining_time": 459,
+  "ams_status": 768,
+  "ams_rfid_status": 3,
+  "hw_switch_state": 1,
+  "spd_mag": 100,
+  "spd_lvl": 2,
+  "print_error": 0,
+  "lifecycle": "product",
+  "wifi_signal": "-50dBm",
+  "gcode_state": "RUNNING",
+  "gcode_file_prepare_percent": "100",
+  "queue_number": 0,
+  "queue_total": 0,
+  "queue_est": 0,
+  "queue_sts": 0,
+  "project_id": "0",
+  "profile_id": "0",
+  "task_id": "0",
+  "subtask_id": "0",
+  "subtask_name": "Halloween+Flexi+Kawaii+Candy+Corn+Frikarte3D.stl_plate_5.3mf",
+  "gcode_file": "Halloween+Flexi+Kawaii+Candy+Corn+Frikarte3D.stl_plate_5.3mf",
+  "stg": [
+   2,
+   13,
+   24,
+   4,
+   8,
+   3,
+   14,
+   1
+  ],
+  "stg_cur": 0,
+  "print_type": "local",
+  "home_flag": 578766263,
+  "mc_print_line_number": "0",
+  "mc_print_sub_stage": 0,
+  "sdcard": true,
+  "force_upgrade": false,
+  "mess_production_state": "active",
+  "layer_num": 2,
+  "total_layer_num": 27,
+  "s_obj": [],
+  "filam_bak": [],
+  "fan_gear": 0,
+  "nozzle_diameter": "0.4",
+  "nozzle_type": "hardened_steel",
+  "cali_version": 0,
+  "k": "0.0464",
+  "flag3": 221855,
+  "upgrade_state": {
+   "sequence_id": 0,
+   "progress": "",
+   "status": "IDLE",
+   "consistency_request": false,
+   "dis_state": 0,
+   "err_code": 0,
+   "force_upgrade": false,
+   "message": "",
+   "module": "",
+   "new_version_state": 2,
+   "cur_state_code": 1,
+   "idx2": 1990306463,
+   "new_ver_list": [],
+   "mc_for_ams_firmware": {
+    "current_run_firmware_id": 1,
+    "current_firmware_id": 1,
+    "status": "IDLE",
+    "firmware": [
+     {
+      "id": 0,
+      "name": "AMS Lite"
+     },
+     {
+      "id": 1,
+      "name": "AMS/AMS 2 Pro/AMS HT"
+     }
+    ]
+   }
+  },
+  "online": {
+   "ahb": false,
+   "rfid": false,
+   "version": 1796133989
+  },
+  "ipcam": {
+   "ipcam_dev": "1",
+   "ipcam_record": "enable",
+   "timelapse": "disable",
+   "resolution": "1080p",
+   "tutk_server": "disable",
+   "mode_bits": 3
+  },
+  "upload": {
+   "status": "idle",
+   "progress": 0,
+   "message": ""
+  },
+  "net": {
+   "conf": 16,
+   "info": [
+    {
+     "ip": 2382473408,
+     "mask": 16777215
+    },
+    {
+     "ip": 0,
+     "mask": 0
+    }
+   ]
+  },
+  "hms": [],
+  "ams": {
+   "ams": [
+    {
+     "chip_id": "6b883b4e1c02300747323934fffffff",
+     "ams_id": "006009000000003",
+     "check": 1,
+     "id": "0",
+     "humidity": "5",
+     "humidity_raw": "17",
+     "temp": "31.4",
+     "dry_time": 0,
+     "info": "1001",
+     "tray": [
+      {
+       "id": "0",
+       "state": 3,
+       "remain": -1,
+       "k": 0.03999999910593,
+       "n": 1,
+       "cali_idx": -1,
+       "total_len": 330000,
+       "tag_uid": "0000000000000000",
+       "tray_id_name": "",
+       "tray_info_idx": "GFG99",
+       "tray_type": "PETG",
+       "tray_sub_brands": "",
+       "tray_color": "FFFFFFFF",
+       "tray_weight": "0",
+       "tray_diameter": "0.00",
+       "tray_temp": "0",
+       "tray_time": "0",
+       "bed_temp_type": "0",
+       "bed_temp": "0",
+       "nozzle_temp_max": "270",
+       "nozzle_temp_min": "220",
+       "xcam_info": "000000000000000000000000",
+       "tray_uuid": "00000000000000000000000000000000",
+       "ctype": 0,
+       "cols": [
+        "FFFFFFFF"
+       ]
+      },
+      {
+       "id": "1",
+       "state": 3,
+       "remain": -1,
+       "k": 0.03999999910593,
+       "n": 1,
+       "cali_idx": -1,
+       "total_len": 330000,
+       "tag_uid": "0000000000000000",
+       "tray_id_name": "",
+       "tray_info_idx": "GFG99",
+       "tray_type": "PETG",
+       "tray_sub_brands": "",
+       "tray_color": "F6DA5AFF",
+       "tray_weight": "0",
+       "tray_diameter": "0.00",
+       "tray_temp": "0",
+       "tray_time": "0",
+       "bed_temp_type": "0",
+       "bed_temp": "0",
+       "nozzle_temp_max": "270",
+       "nozzle_temp_min": "220",
+       "xcam_info": "000000000000000000000000",
+       "tray_uuid": "00000000000000000000000000000000",
+       "ctype": 0,
+       "cols": [
+        "F6DA5AFF"
+       ]
+      },
+      {
+       "id": "2",
+       "state": 3,
+       "remain": -1,
+       "k": 0.03999999910593,
+       "n": 1,
+       "cali_idx": -1,
+       "total_len": 330000,
+       "tag_uid": "0000000000000000",
+       "tray_id_name": "",
+       "tray_info_idx": "GFG99",
+       "tray_type": "PETG",
+       "tray_sub_brands": "",
+       "tray_color": "FF6910FF",
+       "tray_weight": "0",
+       "tray_diameter": "0.00",
+       "tray_temp": "0",
+       "tray_time": "0",
+       "bed_temp_type": "0",
+       "bed_temp": "0",
+       "nozzle_temp_max": "270",
+       "nozzle_temp_min": "220",
+       "xcam_info": "000000000000000000000000",
+       "tray_uuid": "00000000000000000000000000000000",
+       "ctype": 0,
+       "cols": [
+        "FF6910FF"
+       ]
+      },
+      {
+       "id": "3"
+      }
+     ]
+    }
+   ],
+   "ams_exist_bits": "1",
+   "tray_exist_bits": "7",
+   "tray_is_bbl_bits": "7",
+   "tray_tar": "2",
+   "tray_now": "2",
+   "tray_pre": "2",
+   "tray_read_done_bits": "7",
+   "tray_reading_bits": "0",
+   "version": 544,
+   "insert_flag": true,
+   "power_on_flag": false
+  },
+  "vt_tray": {
+   "id": "254",
+   "tag_uid": "0000000000000000",
+   "tray_id_name": "",
+   "tray_info_idx": "GFG99",
+   "tray_type": "PETG",
+   "tray_sub_brands": "",
+   "tray_color": "FFFFFFFF",
+   "tray_weight": "0",
+   "tray_diameter": "0.00",
+   "tray_temp": "0",
+   "tray_time": "0",
+   "bed_temp_type": "0",
+   "bed_temp": "0",
+   "nozzle_temp_max": "270",
+   "nozzle_temp_min": "220",
+   "xcam_info": "000000000000000000000000",
+   "tray_uuid": "00000000000000000000000000000000",
+   "remain": 0,
+   "k": 0.03999999910593033,
+   "n": 1,
+   "cali_idx": -1
+  },
+  "lights_report": [
+   {
+    "node": "chamber_light",
+    "mode": "on"
+   }
+  ],
+  "xcam": {
+   "buildplate_marker_detector": false
+  },
+  "info": [
+   {
+    "ip": 2382473408,
+    "mask": 16777215
+   },
+   {
+    "ip": 0,
+    "mask": 0
+   }
+  ],
+  "command": "push_status",
+  "msg": 1,
+  "sequence_id": "37308"
+ }
+}

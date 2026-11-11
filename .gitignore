@@ -1,0 +1,28 @@
+# Your data (printers, access codes, history, account tokens) - never commit
+data/
+*.db
+!tests/fixtures/upgrade/*.db
+*.db-wal
+*.db-shm
+
+# Private design notes kept outside the repo
+docs/SPEC.md
+docs/CONTEXT.md
+
+# Python / tools
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Packages and probe output
+*.zip
+*.json.out
+pause_*.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

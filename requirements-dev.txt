@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest>=8
+pyftpdlib>=2.0
+pyopenssl>=24
+cryptography>=42
+httpx>=0.27

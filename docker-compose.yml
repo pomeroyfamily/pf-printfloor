@@ -1,0 +1,20 @@
+# PF PrintFloor - Docker Compose for any Linux machine with Docker.
+#   docker compose up -d          start (pulls the ready-made image the first time)
+#   docker compose pull && docker compose up -d     update - your printers, history and settings are kept
+# Then open http://<this machine's IP>:8765
+services:
+  pf-printfloor:
+    image: ghcr.io/pomeroyfamily/pf-printfloor:latest
+    container_name: pf-printfloor
+    # Host networking lets the dashboard find printers by itself (Bambu SSDP, U1 mDNS, Elegoo UDP broadcasts).
+    # Docker Desktop (Windows / Mac): host networking may not work - see "Docker Desktop" in README.md.
+    network_mode: host
+    environment:
+      PRINTER_DASH_PORT: "8765"      # with host networking this is the port on the machine itself
+      TZ: America/Los_Angeles        # your time zone (for "done at" times and history)
+    volumes:
+      - printfloor-data:/data         # everything you set up lives here and survives updates
+    restart: unless-stopped
+
+volumes:
+  printfloor-data:
