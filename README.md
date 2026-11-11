@@ -111,8 +111,20 @@ docker run -d --name pf-printfloor --network host --restart unless-stopped \
   -e TZ=America/Los_Angeles -v printfloor-data:/data ghcr.io/pomeroyfamily/pf-printfloor:latest
 ```
 
-The data lives in the Docker volume `printfloor-data`. To use a folder instead, mount it at `/data` and make it
-writable by user `568` (the container runs as that user): `sudo chown 568:568 <folder>`.
+**Where your data lives.** By default in the Docker volume `printfloor-data`: nothing to prepare, Docker creates
+it. (`printfloor-data:` with nothing after it at the bottom of the compose file is intentional.) It's kept when
+you update, but `docker compose down -v` or removing the app's volumes deletes it.
+
+To keep it in a folder you choose instead (easier to back up and snapshot, e.g. on a NAS):
+
+1. Create the folder and make it writable by user `568`, which the container runs as:
+   `sudo mkdir -p /path/to/folder && sudo chown 568:568 /path/to/folder`
+   (TrueNAS: a dataset with the **Apps** permission preset does the same.)
+2. In `docker-compose.yml`, replace `- printfloor-data:/data` with `- /path/to/folder:/data` and delete the
+   `volumes:` block at the bottom.
+
+If the container keeps restarting with `unable to open database file` in its log, the folder isn't writable by
+568 (step 1).
 
 **Docker Desktop (Windows / Mac):** host networking may not be available, so printer discovery may not work.
 Use port mapping instead (replace `--network host` with `-p 8765:8765`) and add printers by IP address. Running
@@ -186,7 +198,8 @@ Everything else is configured in the app (gear menu):
 
 - **Add printer**: from your Bambu account, from a network search (U1 / Klipper / CC), or by IP.
 - **Bambu account**: sign in (email code or authenticator app). The token is stored server-side only.
-- **Govee plugs**: paste the API key; it is stored server-side only and never shown again.
+- **Govee plugs**: paste your Govee API key (see [Getting a Govee API key](#getting-a-govee-api-key)); it is
+  stored server-side only and never shown again.
 - **Dashboard & locations**: dashboard name, banner on/off, locations and the default location.
 - **Manage tags**, **Job history**, **Appearance**.
 
@@ -320,6 +333,19 @@ These are deliberate rules or printer quirks that can look odd.
   followed by a move before the dashboard's next poll (15 s) is missed.
 
 ### Smart plugs (Govee)
+
+#### Getting a Govee API key
+
+Govee has no "sign in with Govee" for other apps; each user requests their own API key.
+
+1. In the **Govee Home** app: the person tab (bottom right) → gear icon (top) → **Apply for API Key**.
+2. Enter your name and a reason (e.g. "local printer dashboard") and submit. Govee emails you the key; it
+   can take a while to arrive.
+3. In the dashboard: gear menu → **Govee plugs** → paste the key.
+
+**One key per account:** since May 2026, getting a new key turns off your older keys right away. If another app
+(Home Assistant, scripts) already uses your Govee key, reuse that key here, or update those apps after getting
+a new one. Only plugs on the Govee cloud API are supported (tested: H5086).
 
 - **Rate limit**: Govee allows about 10,000 requests a day. Background polling stops after 3,000 of the
   dashboard's own requests (or when fewer than 2,000 remain), so on/off and emergency stop always have room.

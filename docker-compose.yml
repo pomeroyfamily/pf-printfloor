@@ -14,7 +14,11 @@ services:
       TZ: America/Los_Angeles        # your time zone (for "done at" times and history)
     volumes:
       - printfloor-data:/data         # everything you set up lives here and survives updates
+      # Or keep the data in a folder you choose (easier to back up). Create it first and make it writable by
+      # user 568 (the container's user):  sudo mkdir -p /path/to/folder && sudo chown 568:568 /path/to/folder
+      # then use this line instead of the one above, and delete the "volumes:" block at the bottom:
+      # - /path/to/folder:/data
     restart: unless-stopped
 
 volumes:
-  printfloor-data:
+  printfloor-data:                    # empty on purpose: a Docker-managed volume with default settings
