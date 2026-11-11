@@ -1,4 +1,4 @@
-# Publishes the ready-made image when a version tag is pushed (e.g. v1.0.0).
+# Publishes the ready-made image when a version tag is pushed (e.g. v0.1.0).
 # The image is only published if the tests pass AND the built container starts and answers.
 name: Release
 on:

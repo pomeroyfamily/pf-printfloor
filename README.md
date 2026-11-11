@@ -150,7 +150,7 @@ database by itself when it starts.
 
 If the page looks unchanged afterwards, reload it once (Ctrl+F5).
 
-To stay on one version, use a version tag instead of `latest`, e.g. `ghcr.io/pomeroyfamily/pf-printfloor:1.0.0`.
+To stay on one version, use a version tag instead of `latest`, e.g. `ghcr.io/pomeroyfamily/pf-printfloor:0.1.0`.
 Releases are listed on the [Releases](https://github.com/pomeroyfamily/pf-printfloor/releases) page.
 
 ## Configuration
