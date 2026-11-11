@@ -56,7 +56,7 @@ class Manager:
         self.autocycle = AutoCycle(store, self.plugs, self.status.get, self.broadcast_printers)
         self._conn_was: dict[str, Any] = {}
         self._boots: dict[str, dict] = dict(store.get_app_setting("bambu_boot") or {})   # pid -> seq, booted_at
-        self._boots_saved_at = 0.0
+        self._boots_saved_at: Optional[float] = None     # None = not saved yet this run
 
     # ------------------------------------------------------------------ lifecycle
     async def start(self, drivers: bool = True) -> None:
@@ -227,7 +227,7 @@ class Manager:
             return
         rec["seq"] = seq
         rec.pop("cand", None)
-        if time.monotonic() - self._boots_saved_at > self.BOOT_SAVE_EVERY_S:
+        if self._boots_saved_at is None or time.monotonic() - self._boots_saved_at > self.BOOT_SAVE_EVERY_S:
             self._save_boots()
 
     def _save_boots(self) -> None:

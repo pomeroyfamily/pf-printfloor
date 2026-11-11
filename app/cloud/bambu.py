@@ -226,7 +226,7 @@ class Account:
         self.state = "linked"
         self.last_error: Optional[str] = None
         self._uid: Optional[str] = None
-        self._devices: tuple[float, list[dict]] = (0.0, [])
+        self._devices: tuple[Optional[float], list[dict]] = (None, [])     # (fetched at, list); None = never fetched
         self.mqtt_host_override: Optional[tuple[str, int]] = None     # tests
 
     # ---- cloud connection for printers away from the LAN (blocking: call via asyncio.to_thread) ----
@@ -249,7 +249,7 @@ class Account:
         if not serial or self.state != "linked":
             return None
         at, devs = self._devices
-        if fresh or time.monotonic() - at > self.DEVICES_TTL_S:
+        if fresh or at is None or time.monotonic() - at > self.DEVICES_TTL_S:
             try:
                 devs = self.cloud.devices()
             except TokenExpired as e:
