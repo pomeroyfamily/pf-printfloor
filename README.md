@@ -72,12 +72,16 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 
 | Printer | Driver | Connection | Camera | Pause reason | Uptime / reboot |
 |---|---|---|---|---|---|
-| Bambu Lab X1 Carbon | `bambu.x1c` | Local MQTT, or Bambu cloud | Not yet (needs a relay, see notes) | Yes | Reboot detection |
-| Bambu Lab P1P | `bambu.p1p` | Local MQTT, or Bambu cloud | Yes (~0.5–2 fps stills) | Yes | Reboot detection |
-| Bambu Lab A1 / A1 Mini | `bambu.a1`, `bambu.a1mini` | Local MQTT, or Bambu cloud | Yes (~0.5–2 fps stills) | Yes | Reboot detection |
-| Snapmaker U1 | `snapmaker.u1` | Moonraker HTTP (local only) | Yes (stock or Paxx firmware) | Yes | Real uptime |
-| Generic Klipper | `klipper.generic` | Moonraker HTTP (local only) | External URL | Yes (if reported) | Real uptime |
-| Elegoo Centauri Carbon | `elegoo.cc1` | SDCP WebSocket (local only) | Yes (MJPEG) | No (shown as "Paused") | Reboot detection |
+| [Bambu Lab X1 Carbon](docs/printers/bambu-lab.md) | `bambu.x1c` | Local MQTT, or Bambu cloud | Not yet (needs a relay, see notes) | Yes | Reboot detection |
+| [Bambu Lab P1P](docs/printers/bambu-lab.md) | `bambu.p1p` | Local MQTT, or Bambu cloud | Yes (~0.5–2 fps stills) | Yes | Reboot detection |
+| [Bambu Lab A1 / A1 Mini](docs/printers/bambu-lab.md) | `bambu.a1`, `bambu.a1mini` | Local MQTT, or Bambu cloud | Yes (~0.5–2 fps stills) | Yes | Reboot detection |
+| [Snapmaker U1](docs/printers/snapmaker-u1.md) | `snapmaker.u1` | Moonraker HTTP (local only) | Yes; smooth video with [extended firmware](docs/printers/snapmaker-u1.md#camera-stock-firmware-vs-extended-firmware) | Yes | Real uptime |
+| [Generic Klipper](docs/printers/klipper.md) | `klipper.generic` | Moonraker HTTP (local only) | External URL | Yes (if reported) | Real uptime |
+| [Elegoo Centauri Carbon](docs/printers/elegoo-centauri-carbon.md) | `elegoo.cc1` | SDCP WebSocket (local only) | Yes (MJPEG, [viewer limit](docs/printers/elegoo-centauri-carbon.md#camera)) | No (shown as "Paused") | Reboot detection |
+
+**Printer notes** (cameras, quirks, what each one can and can't report): click a printer above, or
+[Bambu Lab](docs/printers/bambu-lab.md) · [Snapmaker U1](docs/printers/snapmaker-u1.md) ·
+[Elegoo Centauri Carbon](docs/printers/elegoo-centauri-carbon.md) · [Generic Klipper](docs/printers/klipper.md).
 
 Anycubic Kobra 3 is planned, not built.
 
@@ -332,9 +336,11 @@ These are deliberate rules or printer quirks that can look odd.
 - **X1C** sends real video (RTSPS, port 322) that browsers can't play; a relay inside the dashboard is planned.
   It needs **LAN Mode Liveview** turned on in the printer's network settings (LAN Only Mode is not needed).
 - **U1 stock firmware**: the camera only produces pictures while it is asked every few seconds, ~1–3 fps.
-- **U1 with Paxx firmware**: snapshots plus an optional "Smooth video" (WebRTC, home network only). If Paxx
-  snapshots come back empty, set the camera to Internal, save, then back to Paxx12.
+- **U1 with the [extended firmware](docs/printers/snapmaker-u1.md#camera-stock-firmware-vs-extended-firmware)**
+  (paxx12): snapshots plus an optional "Smooth video" (WebRTC, home network only).
 - **CC**: the stream is switched on when someone watches and off again 10 seconds after the last viewer leaves.
+  The printer allows only a few viewers at once, including Elegoo's apps
+  ([details](docs/printers/elegoo-centauri-carbon.md#camera)).
 - Streams run only while a card, popup or the camera wall is open; a background browser tab stops pulling frames.
 
 ### Uptime and reboot detection
@@ -355,8 +361,9 @@ Setup (getting the API key, linking it, matching plugs to printers) and troubles
 
 - **Rate limit**: Govee allows about 10,000 requests a day. Background polling stops after 3,000 of the
   dashboard's own requests (or when fewer than 2,000 remain), so on/off and emergency stop always have room.
-- **Plug state** is read every 5 minutes, and only for printers that are not online. An online printer's plug is
-  assumed to be on, except for 5 minutes after the dashboard turned it off.
+- **Plug state** is read every 5 minutes for printers that are not online. An online printer's plug is assumed to
+  be on (except for 5 minutes after the dashboard turned it off) and is read every 30 minutes, so an unplugged
+  plug shows as offline.
 - **Emergency stop**: turning a plug off while the printer is printing, paused, receiving a file, has a hot
   nozzle (> 50 °C), is installing a firmware update or drying in the AMS requires typing the printer's name.
 - **Turn on waits 15 seconds** after a turn off (the power supply must discharge).

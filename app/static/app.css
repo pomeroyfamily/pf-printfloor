@@ -622,8 +622,23 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 #editForm input[readonly] { opacity: .7; }
 .plug-assign select { width: 160px; max-width: 100%; }
 .plug-assign tr.dirty td:first-child { font-weight: 600; }
+.plug-offline { color: var(--paused, #B7791F); font-weight: 600; }
 #plugsDlg { width: min(640px, calc(100vw - 32px)); }
 .plug-assign td:first-child { white-space: nowrap; }
 .plug-assign td:last-child, .plug-assign th:last-child { text-align: center; }
 .plug-assign td:nth-child(3) { white-space: normal; text-align: right; }
 .plug-assign .toggle:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ------------------------------------------------------------------ about */
+#aboutDlg { width: min(440px, calc(100vw - 24px)); }
+.about { text-align: center; display: grid; gap: 8px; justify-items: center; }
+.about img { border-radius: 20px; }
+.about h3 { font-size: 22px; margin-top: 4px; }
+.about-ver { color: var(--muted); font-weight: 600; }
+.about-links a, .about .note a { color: var(--printing); }
+.about .note { font-size: 13px; }
+
+.printer-help { margin: -4px 0 12px; }
+.printer-help a { color: var(--printing); font-weight: 600; }
+.help-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.help-foot a { color: var(--printing); font-weight: 600; }

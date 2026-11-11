@@ -283,3 +283,43 @@ def test_suggestions_give_each_plug_to_its_closest_printer():
     got = suggest_plugs(printers, plugs, set())
     assert got == {"a11": "d1", "x1c": "d2", "u11": "d3", "p12": "d4"}         # not A1 for the A1 minis
     assert suggest_plugs(printers, plugs, {"d1"}).get("a11") is None           # a taken plug isn't suggested
+
+
+def test_unplugged_plug_shows_offline_even_when_its_printer_is_online(env, monkeypatch):
+    c, g, m, ids = env
+    plugs = _setup_x1(c, m, ids)                       # X1C online; its plug is unplugged (printer on another outlet)
+    g.offline.add(plugs["X1"])                         # Govee: offline, last known powerSwitch = 1
+    m.plugs._state_at.clear(); m.plugs.states.clear()
+    c.portal.call(m.plugs.refresh)                     # never read yet -> read even though the printer is online
+    view = lambda: next(p for p in c.get("/api/printers").json() if p["id"] == ids["X1C"])["power"]
+    assert view()["online"] is False and not view()["from_printer"]
+    c.portal.call(m.plugs.refresh)                     # read recently: not read again, still offline (not "on")
+    assert view()["online"] is False and not view()["from_printer"]
+    assert next(p for p in c.get("/api/govee").json()["plugs"] if p["device"] == plugs["X1"])["online"] is False
+    g.offline.clear()                                  # plugged back in: picked up at the next 30-minute read
+    monkeypatch.setattr(P, "ONLINE_CHECK_S", 0)
+    c.portal.call(m.plugs.refresh)
+    assert view()["online"] is True and view()["on"] is True
+
+
+def test_offline_plug_checked_on_assign_window_and_before_switching(env):
+    c, g, m, ids = env
+    plugs = {p["name"]: p["device"] for p in c.put("/api/govee", json={"key": KEY}).json()["plugs"]}
+    g.offline.add(plugs["P1-1"])
+    # Govee window opened: every plug on the account is read, assigned or not
+    v = c.get("/api/govee?fresh=1").json()
+    assert next(p for p in v["plugs"] if p["device"] == plugs["P1-1"])["online"] is False
+    assert all(p["online"] is True for p in v["plugs"] if p["device"] != plugs["P1-1"])
+    # assigning reads the plug right away, even though the printer is online
+    pid = ids["P1"]
+    set_status(m, pid)
+    m.plugs._state_at.clear()
+    r = c.put(f"/api/printers/{pid}/plug", json={"device": plugs["P1-1"]}).json()
+    assert r["power"]["online"] is False and not r["power"]["from_printer"]
+    # turning it on or off: checked first, nothing is sent to an offline plug
+    for on in (False, True):
+        r = c.post(f"/api/printers/{pid}/power", json={"on": on})
+        assert r.status_code >= 400 and "offline" in r.json()["detail"]
+    assert g.controls == []
+    log = c.get(f"/api/printers/{pid}/power").json()["log"]
+    assert log and not log[0]["ok"] and "offline" in log[0]["note"]

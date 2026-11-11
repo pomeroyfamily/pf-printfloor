@@ -1106,8 +1106,8 @@ state.govee = null;            // {linked, error, plugs:[{sku, device, name, on,
 state.powerLog = {};
 state.powerConfirm = null;     // {id, reason, type} when turning off needs the typed name
 state.powerArm = null;         // printer id armed for a plain (safe) turn-off
-async function loadGovee() {
-  try { state.govee = await api("GET", "/api/govee"); } catch (_) { state.govee = null; }
+async function loadGovee(fresh = false) {
+  try { state.govee = await api("GET", `/api/govee${fresh ? "?fresh=1" : ""}`); } catch (_) { state.govee = null; }
   if ($("#plugsDlg").open) renderPlugsDlg();
   if (state.detailsId) renderDetails();
 }
@@ -1253,11 +1253,12 @@ function renderPlugsDlg() {
   const g = state.govee;
   const box = $("#plugsBody");
   if (!g?.linked) {
-    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (person tab, gear icon, Apply for API Key); Govee emails it to you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">Step-by-step guide</a></p>
+    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (person tab, gear icon, Apply for API Key); Govee emails it to you.</p>
       <form id="goveeForm" novalidate><label class="field"><span>Govee API key</span><input name="key" type="password" autocomplete="off" required></label>
       <p class="form-error" id="goveeError" role="alert"></p>
       <div class="row-actions"><button class="btn primary" type="submit">Link Govee account</button></div></form>
-      <p class="note">The key is stored on the dashboard server only and never shown again.</p>`;
+      <p class="note">The key is stored on the dashboard server only and never shown again.</p>
+      ${goveeHelp("Step-by-step setup guide")}`;
     return;
   }
   const u = g.usage || {};
@@ -1275,14 +1276,14 @@ function renderPlugsDlg() {
   const printers = [...state.printers].sort((a, b) => a.name.localeCompare(b.name));
   const sel = (x) => `<select data-assign-plug="${esc(x.device)}" aria-label="Printer on plug ${esc(x.name)}">
       <option value="">Not used</option>${printers.map((q) => `<option value="${esc(q.id)}" ${chosen(x) === q.id ? "selected" : ""}>${esc(q.name)}</option>`).join("")}</select>`;
-  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Pick the printer each plug powers, then <b>Save</b>. Plugs named like a printer are filled in for you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">How Govee plugs work</a></p>
+  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Pick the printer each plug powers, then <b>Save</b>. Plugs named like a printer are filled in for you.</p>
     ${g.error ? `<p class="note warn">${esc(g.error)}</p>` : ""}
     <table class="usage-table plug-assign"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th><th title="Optional: power cycle the printer once a day">Daily power cycle</th></tr></thead><tbody>
     ${g.plugs.map((x) => {
       const isSug = !x.printer_id && !(x.device in draft) && sugByDev[x.device];
       const dirty = chosen(x) !== (x.printer_id || "");
       const pid = chosen(x);
-      return `<tr class="${dirty || (pid && cycleOn(x) !== cycleNow(pid)) ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
+      return `<tr class="${dirty || (pid && cycleOn(x) !== cycleNow(pid)) ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.online === false ? `<span class="plug-offline" title="Govee says this plug is offline: unplugged, or not on Wi-Fi">Offline</span>` : x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
         <td>${sel(x)}${isSug ? ` <span class="sub">suggested</span>` : ""}</td>
         <td><input type="checkbox" class="toggle" data-cycle-plug="${esc(x.device)}" ${cycleOn(x) ? "checked" : ""} ${pid ? "" : "disabled"} aria-label="Daily power cycle for the printer on ${esc(x.name)}"></td></tr>`;
     }).join("")}
@@ -1290,8 +1291,13 @@ function renderPlugsDlg() {
     <p class="note">Daily power cycle (optional): the plug turns off for 15 seconds, then back on, once a day. New ones start at <b>6:00 AM</b>, only after the printer has been finished or idle for <b>30 minutes</b>, is cool and has printed since the last cycle. Change the time and the idle minutes for each printer in its <b>Details → Power</b>. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md#5-optional-daily-power-cycle" target="_blank" rel="noopener">How it works</a></p>
     <p class="form-error" id="plugAssignError" role="alert">${dup ? `${esc(state.printers.find((q) => q.id === dup)?.name || "A printer")} is picked for two plugs.` : ""}</p>
     <div class="row-actions"><button class="btn primary" type="button" data-assign-save ${changed.length && !dup ? "" : "disabled"}>${changed.length ? `Save ${changed.length} change${changed.length === 1 ? "" : "s"}` : "Saved"}</button></div>
-    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. A plug's state is checked every 5 minutes while its printer is offline${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
-    <div class="row-actions" style="margin-top:12px"><button class="btn danger${state.govArm ? " armed" : ""}" type="button" data-govee-unlink>${state.govArm ? "Click again to unlink" : "Unlink Govee"}</button></div>`;
+    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. A plug is checked every 5 minutes while its printer is offline, every 30 minutes while it's online, and when you open this window${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
+    <div class="row-actions" style="margin-top:12px"><button class="btn danger${state.govArm ? " armed" : ""}" type="button" data-govee-unlink>${state.govArm ? "Click again to unlink" : "Unlink Govee"}</button></div>
+    ${goveeHelp("Govee plug guide")}`;
+}
+function goveeHelp(text) {
+  return `<p class="note help-foot">Setup, daily power cycle and troubleshooting:
+    <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">${esc(text)}</a></p>`;
 }
 async function savePlugAssignments() {
   const g = state.govee, draft = state.plugDraft || {};
@@ -1326,7 +1332,7 @@ async function savePlugAssignments() {
   } catch (e) { if (err) err.textContent = e.message; await loadGovee(); }
 }
 function setupPlugsDlg() {
-  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; state.cycleDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
+  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; state.cycleDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); await loadGovee(true); });
   $("#plugsBody").addEventListener("change", (e) => {
     const cdev = e.target.dataset?.cyclePlug;
     if (cdev != null) {
@@ -1634,7 +1640,9 @@ function renderDetails() {
       <h3>Remove</h3>
       <p class="note" style="margin-bottom:8px">Stops watching this printer and removes its card. Nothing on the printer changes.</p>
       <button class="btn danger${armed ? " armed" : ""}" type="button" id="removeBtn">${armed ? `Click again to remove ${esc(p.name)}` : `Remove ${esc(p.name)}`}</button>
-    </section>`;
+    </section>
+    ${printerDocs(p.driver) ? `<p class="note help-foot">Camera, quirks and what this printer can report:
+      <a href="${esc(printerDocs(p.driver))}" target="_blank" rel="noopener">${esc(p.maker)} notes</a></p>` : ""}`;
   const body = $("#detailsBody");
   if (body.dataset.for === p.id && body.childNodes.length) morph(body, html);
   else { body.innerHTML = html; body.dataset.for = p.id; body.scrollTop = 0; }
@@ -2025,12 +2033,28 @@ async function submitAccountImport() {
   }
 }
 
+// Printer notes page per driver family (cameras, quirks, what each printer can report)
+const DOCS = "https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/printers/";
+const PRINTER_DOCS = { bambu: "bambu-lab.md", snapmaker: "snapmaker-u1.md", elegoo: "elegoo-centauri-carbon.md",
+                       klipper: "klipper.md" };
+function printerDocs(driver) {
+  const f = PRINTER_DOCS[(driver || "").split(".")[0]];
+  return f ? DOCS + f : null;
+}
+function renderAddHelp() {
+  const url = printerDocs($("#addModel").value);
+  $("#addHelp").hidden = !url;
+  if (url) $("#addHelp").innerHTML = `Setup tips, camera and what this printer can report:
+    <a href="${esc(url)}" target="_blank" rel="noopener">${esc($("#addMaker").value)} notes</a>`;
+}
+
 function fillModels() {
   const maker = state.catalog.find((m) => m.maker === $("#addMaker").value);
   $("#addModel").innerHTML = (maker?.models || []).map((m) =>
     `<option value="${esc(m.driver)}" ${m.available ? "" : "disabled"}>${esc(m.model)}${m.available ? "" : " (coming soon)"}</option>`).join("");
   const first = maker?.models.find((m) => m.available);
   if (first) $("#addModel").value = first.driver;
+  renderAddHelp();
   fillFields();
   renderHow();
   applyAddMode();
@@ -2241,7 +2265,7 @@ $("#settingsMenu").addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) setMenu(false); });
 $("#addBtn").addEventListener("click", openAdd);
 $("#addMaker").addEventListener("change", fillModels);
-$("#addModel").addEventListener("change", fillFields);
+$("#addModel").addEventListener("change", () => { renderAddHelp(); fillFields(); });
 $("#addHow").addEventListener("change", applyAddMode);
 $("#addForm").addEventListener("submit", submitAdd);
 $("#accountBtn").addEventListener("click", () => { renderAccount(); $("#accountDlg").showModal(); });
@@ -2322,6 +2346,27 @@ setupGroups();
 setupLocs();
 setupLayoutDlg();
 setupTags();
+$("#aboutBtn").addEventListener("click", async () => {
+  const body = $("#aboutBody");
+  body.innerHTML = `<p class="muted">Loading…</p>`;
+  $("#aboutDlg").showModal();
+  try {
+    const a = await api("GET", "/api/about");
+    const gh = (path, text) => `<a href="${esc(a.repo + path)}" target="_blank" rel="noopener">${text}</a>`;
+    body.innerHTML = `
+      <div class="about">
+        <img src="/static/icons/icon-192.png" alt="" width="88" height="88">
+        <h3>${esc(a.name)}</h3>
+        <p class="about-ver">Version ${esc(a.version)}</p>
+        <p>A live, status-only dashboard for your 3D printers.</p>
+        <p class="about-links">${gh("", "Project page")} · ${gh("/releases", "Releases")} · ${gh("/issues", "Report a problem")}</p>
+        <p class="note">${esc(a.copyright)}. ${gh("/blob/main/LICENSE", `${esc(a.license)} License`)}.
+          Uses open-source software: ${gh("/blob/main/LICENSES-THIRD-PARTY.md", "licenses")}.</p>
+        <p class="note">Not affiliated with or endorsed by Bambu Lab, Elegoo, Snapmaker or Govee.
+          Product names are trademarks of their owners.</p>
+      </div>`;
+  } catch (err) { body.innerHTML = `<p class="form-error">${esc(err.message)}</p>`; }
+});
 // installed as an app (home screen): no browser reload button, so offer one in Settings
 if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
   $("#reloadBtn").hidden = false;
