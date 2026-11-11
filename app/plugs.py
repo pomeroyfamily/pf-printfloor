@@ -38,6 +38,9 @@ BASE = "https://openapi.api.govee.com"
 # list the same daily number + X-RateLimit-* headers]. Polling must never use up what an emergency stop needs:
 STATE_EVERY_S = 300          # every 5 min , but only plugs whose printer is NOT online - an online printer's
                              # plug is on by definition. Worst case all 8 offline all day: ~2,300 requests/day.
+ONLINE_CHECK_S = 1800        # a plug whose printer IS online is still read every 30 min (and right after it's
+                             # assigned), so a plug that's unplugged or offline in Govee shows as offline. 8 plugs:
+                             # ~400 requests/day more at most.
 TRUST_PRINTER_AFTER_OFF_S = 300   # after we cut power the printer can still look online for a while: ask the plug
 OFF_COOLDOWN_S = 15
 # Govee can answer "success" to a control request that the plug never carries out (seen on a real U1-C plug
@@ -305,20 +308,32 @@ class Plugs:
                 pst = self._status_of(pid)
                 off_at = self.powered_off_at.get(pid)
                 just_cut = off_at is not None and time.monotonic() - off_at < TRUST_PRINTER_AFTER_OFF_S
-                if pst is not None and pst.connection.value == "online" and not just_cut:
-                    old = self.states.get(plug["device"], {})
-                    if old.get("on") is not True:                  # printer is talking to us -> its plug is on
-                        self.states[plug["device"]] = {"on": True, "online": old.get("online"), "at": _now_iso(),
-                                                       "from_printer": True}
+                dev = plug["device"]
+                read_ago = time.monotonic() - self._state_at[dev] if dev in self._state_at else None
+                if pst is not None and pst.connection.value == "online" and not just_cut \
+                        and read_ago is not None and read_ago < ONLINE_CHECK_S:
+                    old = self.states.get(dev, {})
+                    # printer is talking to us -> its plug is on, unless Govee said the plug itself is offline
+                    # (unplugged, or the printer runs from another outlet): keep showing that until the next read
+                    if old.get("online") is not False and old.get("on") is not True:
+                        self.states[dev] = {"on": True, "online": old.get("online"), "at": _now_iso(),
+                                            "from_printer": True}
                         changed = True
                     continue
                 if not self.usage.polling_allowed():
                     break
-                st = await asyncio.to_thread(self.client().state, plug["sku"], plug["device"])
-                self._state_at[plug["device"]] = time.monotonic()
-                old = self.states.get(plug["device"], {})
-                self.states[plug["device"]] = {**st, "at": _now_iso()}
-                changed |= old.get("on") != st["on"] or old.get("online") != st["online"]
+                try:
+                    st = await asyncio.to_thread(self.client().state, plug["sku"], dev)
+                except GoveeAuthError:
+                    raise
+                except GoveeError as e:                   # one plug failing doesn't stop the others
+                    log.info("Govee state for %s: %s", plug.get("name"), e)
+                    self._state_at[dev] = time.monotonic()
+                    continue
+                self._state_at[dev] = time.monotonic()
+                old = self.states.get(dev, {})
+                self.states[dev] = {**st, "at": _now_iso()}
+                changed |= old.get("on") != st["on"] or old.get("online") != st["online"] or bool(old.get("from_printer"))
             self.error = None
             if changed:
                 self._on_change()

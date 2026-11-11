@@ -283,3 +283,20 @@ def test_suggestions_give_each_plug_to_its_closest_printer():
     got = suggest_plugs(printers, plugs, set())
     assert got == {"a11": "d1", "x1c": "d2", "u11": "d3", "p12": "d4"}         # not A1 for the A1 minis
     assert suggest_plugs(printers, plugs, {"d1"}).get("a11") is None           # a taken plug isn't suggested
+
+
+def test_unplugged_plug_shows_offline_even_when_its_printer_is_online(env, monkeypatch):
+    c, g, m, ids = env
+    plugs = _setup_x1(c, m, ids)                       # X1C online; its plug is unplugged (printer on another outlet)
+    g.offline.add(plugs["X1"])                         # Govee: offline, last known powerSwitch = 1
+    m.plugs._state_at.clear(); m.plugs.states.clear()
+    c.portal.call(m.plugs.refresh)                     # never read yet -> read even though the printer is online
+    view = lambda: next(p for p in c.get("/api/printers").json() if p["id"] == ids["X1C"])["power"]
+    assert view()["online"] is False and not view()["from_printer"]
+    c.portal.call(m.plugs.refresh)                     # read recently: not read again, still offline (not "on")
+    assert view()["online"] is False and not view()["from_printer"]
+    assert next(p for p in c.get("/api/govee").json()["plugs"] if p["device"] == plugs["X1"])["online"] is False
+    g.offline.clear()                                  # plugged back in: picked up at the next 30-minute read
+    monkeypatch.setattr(P, "ONLINE_CHECK_S", 0)
+    c.portal.call(m.plugs.refresh)
+    assert view()["online"] is True and view()["on"] is True

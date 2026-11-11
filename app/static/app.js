@@ -1282,7 +1282,7 @@ function renderPlugsDlg() {
       const isSug = !x.printer_id && !(x.device in draft) && sugByDev[x.device];
       const dirty = chosen(x) !== (x.printer_id || "");
       const pid = chosen(x);
-      return `<tr class="${dirty || (pid && cycleOn(x) !== cycleNow(pid)) ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
+      return `<tr class="${dirty || (pid && cycleOn(x) !== cycleNow(pid)) ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.online === false ? `<span class="plug-offline" title="Govee says this plug is offline: unplugged, or not on Wi-Fi">Offline</span>` : x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
         <td>${sel(x)}${isSug ? ` <span class="sub">suggested</span>` : ""}</td>
         <td><input type="checkbox" class="toggle" data-cycle-plug="${esc(x.device)}" ${cycleOn(x) ? "checked" : ""} ${pid ? "" : "disabled"} aria-label="Daily power cycle for the printer on ${esc(x.name)}"></td></tr>`;
     }).join("")}

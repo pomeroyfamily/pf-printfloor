@@ -20,6 +20,7 @@ class FakeGovee:
         self.power = {d["device"]: 1 for d in self.devices}
         self.controls: list[tuple[str, int]] = []
         self.fail_control = False
+        self.offline: set[str] = set()          # plugs Govee reports as offline (unplugged)
         self.remaining: int | None = None       # X-RateLimit-Remaining to report
         self.limit_reads = False                # answer 429 to device list / state reads
         self.requests: list[str] = []
@@ -68,7 +69,7 @@ class FakeGovee:
                     return
                 if self.path == "/router/api/v1/device/state":
                     self._send(200, {"code": 200, "payload": {"sku": p["sku"], "device": p["device"], "capabilities": [
-                        {"type": "devices.capabilities.online", "instance": "online", "state": {"value": True}},
+                        {"type": "devices.capabilities.online", "instance": "online", "state": {"value": p["device"] not in outer.offline}},
                         {"type": "devices.capabilities.on_off", "instance": "powerSwitch",
                          "state": {"value": outer.power[p["device"]]}}]}})
                 elif self.path == "/router/api/v1/device/control":

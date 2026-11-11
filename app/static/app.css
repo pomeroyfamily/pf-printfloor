@@ -622,6 +622,7 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 #editForm input[readonly] { opacity: .7; }
 .plug-assign select { width: 160px; max-width: 100%; }
 .plug-assign tr.dirty td:first-child { font-weight: 600; }
+.plug-offline { color: var(--paused, #B7791F); font-weight: 600; }
 #plugsDlg { width: min(640px, calc(100vw - 32px)); }
 .plug-assign td:first-child { white-space: nowrap; }
 .plug-assign td:last-child, .plug-assign th:last-child { text-align: center; }

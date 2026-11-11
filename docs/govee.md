@@ -41,7 +41,8 @@ You can also set or change a single printer's plug in its **Details → Power** 
 
 ## 4. Using it
 
-- **Power icon on the card**: green = plug on, red = off, yellow = plug offline or not known yet. Click it for the
+- **Power icon on the card**: green = plug on, red = off, yellow = plug offline (unplugged or off Wi-Fi) or not
+  known yet. The Govee plugs window shows **Offline** next to such a plug. Click it for the
   power window (same controls as Details → Power).
 - **Turn off** asks for a second click. While the printer is printing, paused, receiving a file, updating
   firmware, drying filament or has a hot nozzle (> 50 °C), it becomes an **emergency stop**: you have to type the
@@ -82,8 +83,9 @@ rules are in the README under [Automatic power cycle](../README.md#automatic-pow
 
 Govee allows about 10,000 requests per account per day.
 
-- A plug's state is read every 5 minutes, and only while its printer is **not** online. An online printer's plug
-  is on by definition.
+- A plug's state is read every 5 minutes while its printer is **not** online. While the printer is online its
+  plug is taken to be on, and the plug is only read every 30 minutes (and right after you assign it), to catch a
+  plug that's unplugged or offline.
 - The plug list is refreshed a few times a day.
 - Background checks stop for the day after 3,000 of the dashboard's own requests, or when Govee says fewer than
   2,000 are left, so turning plugs on and off always has room. The **Govee plugs** window shows today's count.
@@ -95,7 +97,7 @@ Govee allows about 10,000 requests per account per day.
 | "Govee rejected that API key" when linking | Copy the key again from Govee's email. If you requested a newer key since, only the newest works. |
 | It worked before, now every plug fails | A new key was generated for the account (for example by another app) and turned this one off. Unlink, then link the newest key. |
 | A plug isn't in the list | Set it up in the Govee Home app and make sure it's online. Unlink and link again to reload the list right away. |
-| Power icon stays yellow | The plug is offline in Govee, or hasn't been read yet (up to 5 minutes after the printer goes offline). |
+| Power icon stays yellow, or the plug says **Offline** | Govee reports the plug offline: it's unplugged or off Wi-Fi (the Govee Home app shows the same). If the printer is online anyway, it's running from another outlet. A plug that hasn't been read yet is also yellow for up to 5 minutes. |
 | "Unconfirmed" after on/off | Govee took the command but wouldn't report the plug's state. Check the plug or the Govee app. |
 
 To remove the key: Govee plugs → **Unlink Govee**. Each printer keeps its plug choice, so linking the same Govee
