@@ -627,3 +627,12 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 .plug-assign td:last-child, .plug-assign th:last-child { text-align: center; }
 .plug-assign td:nth-child(3) { white-space: normal; text-align: right; }
 .plug-assign .toggle:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ------------------------------------------------------------------ about */
+#aboutDlg { width: min(440px, calc(100vw - 24px)); }
+.about { text-align: center; display: grid; gap: 8px; justify-items: center; }
+.about img { border-radius: 20px; }
+.about h3 { font-size: 22px; margin-top: 4px; }
+.about-ver { color: var(--muted); font-weight: 600; }
+.about-links a, .about .note a { color: var(--printing); }
+.about .note { font-size: 13px; }

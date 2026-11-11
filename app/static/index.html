@@ -67,6 +67,7 @@
         <button type="button" role="menuitem" id="layoutBtn">Dashboard &amp; locations</button>
         <button type="button" role="menuitem" id="tagsBtn">Manage tags</button>
         <button type="button" role="menuitem" id="reloadBtn" hidden>Reload</button>
+        <button type="button" role="menuitem" id="aboutBtn">About</button>
         <div class="menu-row" role="group" aria-label="Appearance">
           <span>Appearance</span>
           <div class="seg mini" id="themeSeg">
@@ -183,6 +184,14 @@
 </dialog>
 
 <!-- Bambu account -->
+<dialog class="modal" id="aboutDlg" aria-labelledby="aboutTitle">
+  <div class="modal-head">
+    <h2 id="aboutTitle">About</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+  </div>
+  <div class="modal-body" id="aboutBody"></div>
+</dialog>
+
 <dialog class="modal" id="tagsDlg" aria-labelledby="tagsTitle">
   <div class="modal-head">
     <h2 id="tagsTitle">Manage tags</h2>

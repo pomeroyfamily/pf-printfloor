@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import config
+from . import __version__, config
 from .cloud import bambu as bambu_cloud
 from .discovery import klipper_scan
 from .discovery.bambu_ssdp import BambuSSDP
@@ -31,6 +31,7 @@ from .store import DuplicatePrinter, PrinterStore
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 KEEPALIVE_S = 15
+REPO_URL = "https://github.com/pomeroyfamily/pf-printfloor"
 
 
 class AddPrinter(BaseModel):
@@ -152,7 +153,7 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
             await mgr.stop()
             store.close()
 
-    app = FastAPI(title="PF PrintFloor", lifespan=lifespan)
+    app = FastAPI(title="PF PrintFloor", version=__version__, lifespan=lifespan)
 
     def mgr(request: Request) -> Manager:
         return request.app.state.mgr
@@ -172,6 +173,11 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         page = _page.replace("<title>PF PrintFloor</title>", f"<title>{name}</title>") \
             .replace('name="apple-mobile-web-app-title" content="PF PrintFloor"', f'name="apple-mobile-web-app-title" content="{name}"')
         return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
+
+    @app.get("/api/about")
+    async def about():
+        return {"name": "PF PrintFloor", "version": __version__, "repo": REPO_URL, "license": "MIT",
+                "copyright": "© 2026 Danny Pomeroy"}
 
     @app.get("/manifest.webmanifest", include_in_schema=False)
     async def manifest(request: Request):

@@ -205,3 +205,13 @@ def test_installable_app_manifest_uses_dashboard_name(client):
     page = client.get("/").text
     assert "<title>Shop &quot;A&quot; &lt;1&gt;</title>" in page
     assert 'name="apple-mobile-web-app-title" content="Shop &quot;A&quot; &lt;1&gt;"' in page
+
+
+def test_about_version_matches_pyproject(client):
+    import re
+    from pathlib import Path
+    from app import __version__
+    toml = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text()
+    assert re.search(r'^version = "([^"]+)"', toml, re.M).group(1) == __version__
+    a = client.get("/api/about").json()
+    assert a["version"] == __version__ and a["repo"].startswith("https://github.com/pomeroyfamily/")

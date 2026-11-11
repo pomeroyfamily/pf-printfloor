@@ -2322,6 +2322,27 @@ setupGroups();
 setupLocs();
 setupLayoutDlg();
 setupTags();
+$("#aboutBtn").addEventListener("click", async () => {
+  const body = $("#aboutBody");
+  body.innerHTML = `<p class="muted">Loading…</p>`;
+  $("#aboutDlg").showModal();
+  try {
+    const a = await api("GET", "/api/about");
+    const gh = (path, text) => `<a href="${esc(a.repo + path)}" target="_blank" rel="noopener">${text}</a>`;
+    body.innerHTML = `
+      <div class="about">
+        <img src="/static/icons/icon-192.png" alt="" width="88" height="88">
+        <h3>${esc(a.name)}</h3>
+        <p class="about-ver">Version ${esc(a.version)}</p>
+        <p>A live, status-only dashboard for your 3D printers.</p>
+        <p class="about-links">${gh("", "Project page")} · ${gh("/releases", "Releases")} · ${gh("/issues", "Report a problem")}</p>
+        <p class="note">${esc(a.copyright)}. ${gh("/blob/main/LICENSE", `${esc(a.license)} License`)}.
+          Uses open-source software: ${gh("/blob/main/LICENSES-THIRD-PARTY.md", "licenses")}.</p>
+        <p class="note">Not affiliated with or endorsed by Bambu Lab, Elegoo, Snapmaker or Govee.
+          Product names are trademarks of their owners.</p>
+      </div>`;
+  } catch (err) { body.innerHTML = `<p class="form-error">${esc(err.message)}</p>`; }
+});
 // installed as an app (home screen): no browser reload button, so offer one in Settings
 if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
   $("#reloadBtn").hidden = false;
