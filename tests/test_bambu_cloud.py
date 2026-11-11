@@ -129,3 +129,12 @@ def test_driver_falls_back_to_printer_when_cloud_has_no_task(tmp_path, monkeypat
     last = [s for s in seen if s.connection == ConnState.ONLINE][-1]
     assert last.job.thumbnail_source == "printer"
     assert (tmp_path / "thumbs" / "t1.png").read_bytes() == img
+
+
+def test_device_lookup_works_right_after_boot(fc, monkeypatch):
+    """The machine's monotonic clock starts near 0 at boot. An empty, never-fetched printer list must not count as
+    fresh then (it did: cloud fallback was impossible for the first minute after boot)."""
+    fc.devices = [{"dev_id": SERIAL, "online": True}]
+    monkeypatch.setattr(bc.time, "monotonic", lambda: 5.0)
+    acct = bc.Account(_cloud(fc, fc.token), fc.email)
+    assert acct.device(SERIAL) == {"dev_id": SERIAL, "online": True}
