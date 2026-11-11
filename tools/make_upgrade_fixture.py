@@ -6,7 +6,7 @@ sys.path.insert(0, ".")
 from fastapi.testclient import TestClient
 from app.web import create_app
 from app.history import usage_key
-out = pathlib.Path("tests/fixtures/upgrade/v1.0.0.db")
+out = pathlib.Path("tests/fixtures/upgrade/v0.1.0.db")
 tmp = pathlib.Path(sys.argv[1]) / "db.sqlite"
 with TestClient(create_app(tmp, start_drivers=False, ssdp_ports=())) as c:
     p = c.post("/api/printers", json={"name": "Demo P1P", "driver": "bambu.p1p", "host": "10.0.0.189",
