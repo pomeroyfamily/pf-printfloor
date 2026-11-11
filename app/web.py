@@ -256,7 +256,9 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         return v
 
     @app.get("/api/govee")
-    async def govee_get(request: Request):
+    async def govee_get(request: Request, fresh: bool = False):
+        if fresh:                                  # window opened: read the plugs so offline ones show
+            await mgr(request).plugs.refresh_listed()
         return _govee_view(request)
 
     @app.put("/api/govee")
@@ -293,7 +295,9 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         new = m.store.update(pid, settings=settings)
         if pid in m.drivers:
             m.drivers[pid].config = new
-        m.plugs._wake.set()                      # read its state now
+        if body.device:
+            await m.plugs.refresh_one(body.device)   # read it now, so an unplugged plug shows as offline right away
+        m.plugs._wake.set()
         m.broadcast_printers()
         return m.printer_view(new)
 

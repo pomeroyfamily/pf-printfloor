@@ -47,6 +47,8 @@ You can also set or change a single printer's plug in its **Details → Power** 
 - **Turn off** asks for a second click. While the printer is printing, paused, receiving a file, updating
   firmware, drying filament or has a hot nozzle (> 50 °C), it becomes an **emergency stop**: you have to type the
   printer's name, and the dashboard tells you why it's risky.
+- A plug that Govee reports **offline** (unplugged or off Wi-Fi) isn't switched: the dashboard checks first and
+  says so.
 - **Turn on** waits 15 seconds after a turn off, so the printer's power supply can discharge.
 - After every switch the dashboard **reads the plug back** to confirm it, and re-sends once if needed. If Govee
   won't confirm, it says "unconfirmed": check the plug or the Govee app.
@@ -84,8 +86,10 @@ rules are in the README under [Automatic power cycle](../README.md#automatic-pow
 Govee allows about 10,000 requests per account per day.
 
 - A plug's state is read every 5 minutes while its printer is **not** online. While the printer is online its
-  plug is taken to be on, and the plug is only read every 30 minutes (and right after you assign it), to catch a
-  plug that's unplugged or offline.
+  plug is taken to be on, and the plug is read every 30 minutes to catch one that's unplugged or offline.
+- Plugs are also read when you open the **Govee plugs** window (all of them), assign a plug, open a printer's
+  power window or Details, and right before turning a plug on or off (at most once a minute per plug, except
+  the read before a switch).
 - The plug list is refreshed a few times a day.
 - Background checks stop for the day after 3,000 of the dashboard's own requests, or when Govee says fewer than
   2,000 are left, so turning plugs on and off always has room. The **Govee plugs** window shows today's count.

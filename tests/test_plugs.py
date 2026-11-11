@@ -300,3 +300,26 @@ def test_unplugged_plug_shows_offline_even_when_its_printer_is_online(env, monke
     monkeypatch.setattr(P, "ONLINE_CHECK_S", 0)
     c.portal.call(m.plugs.refresh)
     assert view()["online"] is True and view()["on"] is True
+
+
+def test_offline_plug_checked_on_assign_window_and_before_switching(env):
+    c, g, m, ids = env
+    plugs = {p["name"]: p["device"] for p in c.put("/api/govee", json={"key": KEY}).json()["plugs"]}
+    g.offline.add(plugs["P1-1"])
+    # Govee window opened: every plug on the account is read, assigned or not
+    v = c.get("/api/govee?fresh=1").json()
+    assert next(p for p in v["plugs"] if p["device"] == plugs["P1-1"])["online"] is False
+    assert all(p["online"] is True for p in v["plugs"] if p["device"] != plugs["P1-1"])
+    # assigning reads the plug right away, even though the printer is online
+    pid = ids["P1"]
+    set_status(m, pid)
+    m.plugs._state_at.clear()
+    r = c.put(f"/api/printers/{pid}/plug", json={"device": plugs["P1-1"]}).json()
+    assert r["power"]["online"] is False and not r["power"]["from_printer"]
+    # turning it on or off: checked first, nothing is sent to an offline plug
+    for on in (False, True):
+        r = c.post(f"/api/printers/{pid}/power", json={"on": on})
+        assert r.status_code >= 400 and "offline" in r.json()["detail"]
+    assert g.controls == []
+    log = c.get(f"/api/printers/{pid}/power").json()["log"]
+    assert log and not log[0]["ok"] and "offline" in log[0]["note"]

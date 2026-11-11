@@ -51,6 +51,8 @@ DEVICES_EVERY_S = 6 * 3600   # device list 4x/day
 DAILY_LIMIT = 10_000
 POLL_BUDGET = 3_000          # background polling stops for the day after this many of OUR requests ...
 RESERVE = 2_000              # ... or when Govee says fewer than this remain. Power on/off is never held back.
+OFFLINE_MSG = ("Govee says this plug is offline (unplugged or off Wi-Fi), so it can't be switched. Check it in the "
+               "Govee Home app.")
 ON_DEMAND_GAP_S = 60         # Details "refresh" at most once a minute per plug
 HOT_NOZZLE_C = 50
 STARTING_UP_S = 240          # after power-on, show "Starting up" until the printer reconnects (max 4 min)
@@ -292,7 +294,7 @@ class Plugs:
         """printer_id -> plug {sku, device, name}."""
         return {c.id: c.settings["plug"] for c in self.store.list() if (c.settings.get("plug") or {}).get("device")}
 
-    async def refresh(self, only: Optional[str] = None) -> None:
+    async def refresh(self, only: Optional[str] = None, force: bool = False) -> None:
         """Background poll (or one plug on demand). Skipped entirely once the polling budget is spent, so the
         daily allowance stays available for turning plugs on/off."""
         if not self.key() or not self.usage.polling_allowed():
@@ -310,7 +312,7 @@ class Plugs:
                 just_cut = off_at is not None and time.monotonic() - off_at < TRUST_PRINTER_AFTER_OFF_S
                 dev = plug["device"]
                 read_ago = time.monotonic() - self._state_at[dev] if dev in self._state_at else None
-                if pst is not None and pst.connection.value == "online" and not just_cut \
+                if pst is not None and pst.connection.value == "online" and not just_cut and not force \
                         and read_ago is not None and read_ago < ONLINE_CHECK_S:
                     old = self.states.get(dev, {})
                     # printer is talking to us -> its plug is on, unless Govee said the plug itself is offline
@@ -357,9 +359,32 @@ class Plugs:
                 "on_wait_s": wait}
 
     async def refresh_one(self, device: str) -> None:
-        """Details opened: read this plug's state now, at most once a minute (skipped if its printer is online)."""
+        """Power window / Details opened, or plug just assigned: read this plug now (even if its printer is
+        online, so an unplugged plug shows as offline), at most once a minute."""
         if time.monotonic() - self._state_at.get(device, 0.0) >= ON_DEMAND_GAP_S:
-            await self.refresh(only=device)
+            await self.refresh(only=device, force=True)
+
+    async def refresh_listed(self) -> None:
+        """Govee plugs window opened: read every plug on the account (assigned or not) so you can see which are
+        offline before assigning. At most once a minute per plug; skipped once the polling budget is spent."""
+        if not self.key():
+            return
+        due = [p for p in self.plug_list
+               if time.monotonic() - self._state_at.get(p["device"], 0.0) >= ON_DEMAND_GAP_S]
+
+        async def one(p):
+            if not self.usage.polling_allowed():
+                return False
+            try:
+                st = await asyncio.to_thread(self.client().state, p["sku"], p["device"])
+            except GoveeError:
+                return False
+            self._state_at[p["device"]] = time.monotonic()
+            old = self.states.get(p["device"], {})
+            self.states[p["device"]] = {**st, "at": _now_iso()}
+            return old.get("on") != st["on"] or old.get("online") != st["online"]
+        if any(await asyncio.gather(*(one(p) for p in due))):
+            self._on_change()
 
     def account_view(self) -> dict:
         assigned = {p["device"]: pid for pid, p in self.assigned().items()}
@@ -409,6 +434,18 @@ class Plugs:
         client = self.client()
         confirmed, last = False, None
         try:
+            try:                                           # an unplugged plug can't be switched: say so up front
+                pre = await loop.run_in_executor(_POWER_POOL, client.state, plug["sku"], plug["device"])
+            except GoveeAuthError:
+                raise
+            except GoveeError:
+                pre = None                                 # can't read it: still try the command (emergency stop)
+            if pre is not None:
+                self.states[plug["device"]] = {**pre, "at": _now_iso()}
+                self._state_at[plug["device"]] = time.monotonic()
+                if pre.get("online") is False:
+                    self._on_change()
+                    raise GoveeError(OFFLINE_MSG)
             for attempt in range(SEND_TRIES):
                 await loop.run_in_executor(_POWER_POOL, client.set_power, plug["sku"], plug["device"], on)
                 for wait in VERIFY_READS:
@@ -417,6 +454,9 @@ class Plugs:
                         last = await loop.run_in_executor(_POWER_POOL, client.state, plug["sku"], plug["device"])
                     except GoveeError:
                         continue                           # a failed read-back isn't a failed switch: keep checking
+                    if last.get("online") is False:        # went offline (unplugged) mid-command
+                        self.states[plug["device"]] = {**last, "at": _now_iso()}
+                        raise GoveeError(OFFLINE_MSG)
                     if last.get("on") is on:
                         confirmed = True
                         break

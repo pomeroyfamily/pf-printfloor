@@ -1106,8 +1106,8 @@ state.govee = null;            // {linked, error, plugs:[{sku, device, name, on,
 state.powerLog = {};
 state.powerConfirm = null;     // {id, reason, type} when turning off needs the typed name
 state.powerArm = null;         // printer id armed for a plain (safe) turn-off
-async function loadGovee() {
-  try { state.govee = await api("GET", "/api/govee"); } catch (_) { state.govee = null; }
+async function loadGovee(fresh = false) {
+  try { state.govee = await api("GET", `/api/govee${fresh ? "?fresh=1" : ""}`); } catch (_) { state.govee = null; }
   if ($("#plugsDlg").open) renderPlugsDlg();
   if (state.detailsId) renderDetails();
 }
@@ -1326,7 +1326,7 @@ async function savePlugAssignments() {
   } catch (e) { if (err) err.textContent = e.message; await loadGovee(); }
 }
 function setupPlugsDlg() {
-  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; state.cycleDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
+  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; state.cycleDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); await loadGovee(true); });
   $("#plugsBody").addEventListener("change", (e) => {
     const cdev = e.target.dataset?.cyclePlug;
     if (cdev != null) {
