@@ -57,6 +57,8 @@
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
+  /* installed app on iPad/iPhone: keep clear of the status bar, rounded corners and home bar */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
@@ -296,9 +298,14 @@ body:not([data-sort="manual"]) .grip { visibility: hidden; }
 .tag-edit input { flex: 1 1 160px; min-width: 0; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; min-height: 34px; }
 .tag-admin { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .tag-admin li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; }
+#tagsDlg { width: min(640px, calc(100vw - 24px)); }
+.tag-new { display: flex; gap: 8px; margin-bottom: 12px; }
+.tag-new input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; min-height: 36px; }
+.tag-printers { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.tag-printers .check { min-height: 32px; margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
 .tag-admin input { min-width: 0; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; min-height: 36px; }
 .tag-admin .muted { font-size: 12px; white-space: nowrap; }
-@media (max-width: 560px) { .tag-admin li { grid-template-columns: 1fr auto; } .tag-admin .muted { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .tag-admin li { grid-template-columns: 1fr auto; } .tag-admin li + li { border-top: 1px solid var(--line); padding-top: 8px; } }
 
 /* ------------------------------------------------------------------ power */
 .power-warn { border: 2px solid var(--fail); border-radius: 10px; padding: 12px; margin: 8px 0; display: grid; gap: 8px;
@@ -613,3 +620,10 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 .follow-check input { accent-color: var(--ink); width: 16px; height: 16px; align-self: center; }
 .follow-check small { flex-basis: 100%; padding-left: 24px; }
 #editForm input[readonly] { opacity: .7; }
+.plug-assign select { width: 160px; max-width: 100%; }
+.plug-assign tr.dirty td:first-child { font-weight: 600; }
+#plugsDlg { width: min(640px, calc(100vw - 32px)); }
+.plug-assign td:first-child { white-space: nowrap; }
+.plug-assign td:last-child, .plug-assign th:last-child { text-align: center; }
+.plug-assign td:nth-child(3) { white-space: normal; text-align: right; }
+.plug-assign .toggle:disabled { opacity: .35; cursor: not-allowed; }

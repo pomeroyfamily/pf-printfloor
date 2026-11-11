@@ -26,3 +26,6 @@ pause_*.json
 .idea/
 .DS_Store
 Thumbs.db
+
+# local screenshots
+/*.png

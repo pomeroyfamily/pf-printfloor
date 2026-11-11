@@ -205,3 +205,17 @@ def test_import_printer_history_dedupes_and_matches_tracked_job(env):
     assert [j["source"] for j in jobs] == ["dashboard", "printer", "printer"]
     page2 = h.jobs([key], limit=2, before_id=jobs[1]["id"])
     assert [j["job"] for j in page2] == ["job t-old2"]
+
+
+def test_average_job_time_ignores_the_running_job(env):
+    h, cfg, clk = env
+    key = H.usage_key(cfg)
+    assert h.usage(key)["avg_job_seconds"] is None
+    run(h, cfg, clk, [st(JobState.PRINTING, name="A")] * 4 + [st(JobState.FINISHED, name="A")]
+        + [st(JobState.PRINTING, name="B")] * 10 + [st(JobState.FAILED, name="B")])
+    done = [j["print_seconds"] for j in h.jobs()]
+    u = h.usage(key)
+    assert u["avg_jobs"] == 2 and u["avg_job_seconds"] == pytest.approx(sum(done) / 2)
+    run(h, cfg, clk, [st(JobState.PRINTING, name="C")] * 3)          # still printing: not in the average
+    u = h.usage(key)
+    assert u["tracked_jobs"] == 3 and u["avg_jobs"] == 2 and u["avg_job_seconds"] == pytest.approx(sum(done) / 2)

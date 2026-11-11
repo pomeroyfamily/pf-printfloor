@@ -333,6 +333,8 @@ class History:
                                 "reported_at, created_at, reset_offset_seconds, reset_offset_jobs, last_reset_at, counter_basis "
                                 "FROM usage WHERE key = ?", (key,)).fetchone()
             first = self.db.execute("SELECT MIN(started_at) FROM jobs WHERE usage_key = ?", (key,)).fetchone()[0]
+            done = self.db.execute("SELECT COALESCE(SUM(print_seconds),0), COUNT(*) FROM jobs "
+                                   "WHERE usage_key = ? AND ended_at IS NOT NULL", (key,)).fetchone()
             edits = self.db.execute("SELECT at, field, old, new FROM usage_edits WHERE key = ? ORDER BY id DESC LIMIT 10",
                                     (key,)).fetchall()
         ended = finished + failed
@@ -356,6 +358,8 @@ class History:
                 "tracking_since": u[6], "first_job_at": first,
                 "tracked_seconds": tracked_s, "tracked_jobs": tracked_jobs, "finished": finished, "failed": failed,
                 "success_rate": round(100 * finished / ended) if ended else None,
+                # average over ended jobs only, so a print still running doesn't drag it down
+                "avg_job_seconds": (float(done[0]) / done[1]) if done[1] else None, "avg_jobs": int(done[1]),
                 "total_seconds": total_s, "total_jobs": total_j,
                 "edits": [{"at": e[0], "field": e[1], "old": e[2], "new": e[3]} for e in edits]}
 

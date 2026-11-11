@@ -49,7 +49,7 @@ def _is_ip(text: str) -> bool:
 MAX_TAGS, MAX_TAG_LEN = 20, 30
 
 
-def normalize_tags(tags) -> list[str]:
+def normalize_tags(tags, limit: Optional[int] = MAX_TAGS) -> list[str]:
     """Trim, collapse spaces, drop empties, de-duplicate ignoring case (first spelling wins)."""
     out, seen = [], set()
     for t in tags or []:
@@ -57,7 +57,7 @@ def normalize_tags(tags) -> list[str]:
         if t and t.lower() not in seen:
             seen.add(t.lower())
             out.append(t)
-    return out[:MAX_TAGS]
+    return out[:limit] if limit else out
 
 
 class Manager:
@@ -241,6 +241,10 @@ class Manager:
 
     def unsubscribe(self, q: asyncio.Queue) -> None:
         self._subs.discard(q)
+
+    def subscribed(self, q: asyncio.Queue) -> bool:
+        """False once the queue was dropped for falling behind: the stream must end so the browser reconnects."""
+        return q in self._subs
 
     def _broadcast(self, event: dict) -> None:
         for q in list(self._subs):
@@ -569,11 +573,48 @@ class Manager:
 
     # ------------------------------------------------------------------ tags (across printers)
     def tags(self) -> list[dict[str, Any]]:
+        """Every tag: the ones on printers plus the ones created in Manage tags that no printer has (yet)."""
         counts: dict[str, list] = {}
+        for t in self.store.get_app_setting("tag_list") or []:
+            counts.setdefault(t.lower(), [t, 0, []])
         for cfg in self.store.list():
             for t in cfg.settings.get("tags") or []:
-                counts.setdefault(t.lower(), [t, 0])[1] += 1
-        return sorted(({"name": n, "count": c} for n, c in counts.values()), key=lambda r: r["name"].lower())
+                row = counts.setdefault(t.lower(), [t, 0, []])
+                row[1] += 1
+                row[2].append(cfg.id)
+        return sorted(({"name": n, "count": c, "printers": ids} for n, c, ids in counts.values()),
+                      key=lambda r: r["name"].lower())
+
+    def _tag_list(self, change) -> None:
+        """Update the saved list of defined tags (kept even when no printer has the tag)."""
+        self.store.set_app_setting("tag_list", normalize_tags(change(list(self.store.get_app_setting("tag_list") or [])),
+                                                              limit=None))
+
+    def set_tag_printers(self, name: str, printer_ids: list[str]) -> dict[str, Any]:
+        """Create tag `name` (if new) and put it on exactly these printers. Returns the tag's row."""
+        name = (normalize_tags([name]) or [None])[0]
+        if not name:
+            raise ValueError("enter a tag name")
+        known = {c.id for c in self.store.list()}
+        unknown = set(printer_ids) - known
+        if unknown:
+            raise KeyError(sorted(unknown)[0])
+        existing = next((t["name"] for t in self.tags() if t["name"].lower() == name.lower()), name)
+        want = set(printer_ids)
+        for cfg in self.store.list():
+            tags = cfg.settings.get("tags") or []
+            has = any(t.lower() == name.lower() for t in tags)
+            if (cfg.id in want) == has:
+                continue
+            new_tags = normalize_tags(tags + [existing]) if cfg.id in want else [t for t in tags if t.lower() != name.lower()]
+            if cfg.id in want and len(new_tags) == len(tags):
+                raise ValueError(f"{cfg.name} already has the most tags allowed ({MAX_TAGS})")
+            upd = self.store.update(cfg.id, settings={**cfg.settings, "tags": new_tags})
+            if cfg.id in self.drivers:
+                self.drivers[cfg.id].config = upd
+        self._tag_list(lambda lst: lst + [existing])
+        self.broadcast_printers()
+        return next(t for t in self.tags() if t["name"].lower() == name.lower())
 
     def retag(self, old: str, new: Optional[str]) -> int:
         """Rename tag `old` to `new` on every printer (None = delete). Case-insensitive. Returns printers changed."""
@@ -589,8 +630,9 @@ class Manager:
             if cfg.id in self.drivers:
                 self.drivers[cfg.id].config = upd
             changed += 1
-        if changed:
-            self.broadcast_printers()
+        self._tag_list(lambda lst: [new if t.lower() == old.lower() else t for t in lst] if new
+                       else [t for t in lst if t.lower() != old.lower()])
+        self.broadcast_printers()
         return changed
 
     # ------------------------------------------------------------------ automatic power cycle

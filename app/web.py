@@ -5,6 +5,7 @@ Run:  python -m app            (http://localhost:8765)
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -23,7 +24,7 @@ from .discovery.bambu_ssdp import BambuSSDP
 from .drivers import catalog, get_driver
 from .cameras import CameraUnavailable, FRAME_TIMEOUT_S
 from .history import usage_key
-from .plugs import GoveeAuthError, GoveeError, match_plug
+from .plugs import GoveeAuthError, GoveeError, suggest_plugs
 from .manager import Manager
 from .store import DuplicatePrinter, PrinterStore
 
@@ -101,6 +102,11 @@ class LinkHistory(BaseModel):
     key: str
 
 
+class TagPrinters(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    printers: list[str] = Field(default_factory=list, max_length=500)
+
+
 class Retag(BaseModel):
     old: str = Field(min_length=1)
     new: Optional[str] = None           # missing/blank = delete the tag everywhere
@@ -160,8 +166,24 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         .replace('src="/static/app.js"', f'src="/static/app.js?v={_ver}"')
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-    async def index():
-        return HTMLResponse(_page, headers={"Cache-Control": "no-cache"})
+    async def index(request: Request):
+        # the dashboard's own name, so "Add to Home Screen" offers it (the page sets it again live)
+        name = html.escape(mgr(request).dashboard()["name"], quote=True)
+        page = _page.replace("<title>PF PrintFloor</title>", f"<title>{name}</title>") \
+            .replace('name="apple-mobile-web-app-title" content="PF PrintFloor"', f'name="apple-mobile-web-app-title" content="{name}"')
+        return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
+
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    async def manifest(request: Request):
+        """Lets the dashboard be installed as an app (iPad/iPhone: Share > Add to Home Screen)."""
+        name = mgr(request).dashboard()["name"]
+        icons = [{"src": f"/static/icons/icon-{n}.png", "sizes": f"{n}x{n}", "type": "image/png"} for n in (192, 512)]
+        icons.append({"src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png",
+                      "purpose": "maskable"})
+        return JSONResponse({"name": name, "short_name": name[:30], "id": "/", "start_url": "/", "scope": "/",
+                             "display": "standalone", "background_color": "#14191F", "theme_color": "#14191F",
+                             "icons": icons}, media_type="application/manifest+json",
+                            headers={"Cache-Control": "no-cache"})
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
@@ -223,12 +245,8 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         v = m.plugs.account_view()
         taken = set(m.plugs.assigned().keys())
         used = {p["device"] for p in m.plugs.assigned().values()}
-        v["suggestions"] = {}
-        for cfg in m.store.list():
-            if cfg.id not in taken:
-                s = match_plug(cfg.name, m.plugs.plug_list, used)
-                if s:
-                    v["suggestions"][cfg.id] = s["device"]
+        v["suggestions"] = suggest_plugs([(c.id, c.name) for c in m.store.list() if c.id not in taken],
+                                         m.plugs.plug_list, used)
         return v
 
     @app.get("/api/govee")
@@ -458,6 +476,16 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
     async def list_tags(request: Request):
         return mgr(request).tags()
 
+    @app.put("/api/tags")
+    async def set_tag(body: TagPrinters, request: Request):
+        """Create a tag (it's kept even with no printers) and set exactly which printers have it."""
+        try:
+            return mgr(request).set_tag_printers(body.name, body.printers)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except KeyError:
+            raise HTTPException(404, "printer not found")
+
     @app.post("/api/tags/retag")
     async def retag(body: Retag, request: Request):
         new = " ".join((body.new or "").split()) or None
@@ -517,10 +545,12 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
                 while True:
                     if await request.is_disconnected():
                         break
+                    if not m.subscribed(q) and q.empty():
+                        break                  # dropped for falling behind: end it, the browser reconnects fresh
                     try:
                         ev = await asyncio.wait_for(q.get(), timeout=KEEPALIVE_S)
                     except asyncio.TimeoutError:
-                        yield ": keepalive\n\n"
+                        yield _sse({"type": "ping"})   # a real event, so the browser can tell a dead stream
                         continue
                     yield _sse(ev)
             finally:

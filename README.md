@@ -23,6 +23,7 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 - [Updating](#updating)
 - [Configuration](#configuration)
 - [Using the dashboard](#using-the-dashboard)
+  - [Install it as an app](#install-it-as-an-app-ipad-iphone-desktop)
 - [Remote access and security](#remote-access-and-security)
 - [Behavior notes and known limitations](#behavior-notes-and-known-limitations)
 - [Diagnostic tools](#diagnostic-tools)
@@ -111,8 +112,20 @@ docker run -d --name pf-printfloor --network host --restart unless-stopped \
   -e TZ=America/Los_Angeles -v printfloor-data:/data ghcr.io/pomeroyfamily/pf-printfloor:latest
 ```
 
-The data lives in the Docker volume `printfloor-data`. To use a folder instead, mount it at `/data` and make it
-writable by user `568` (the container runs as that user): `sudo chown 568:568 <folder>`.
+**Where your data lives.** By default in the Docker volume `printfloor-data`: nothing to prepare, Docker creates
+it. (`printfloor-data:` with nothing after it at the bottom of the compose file is intentional.) It's kept when
+you update, but `docker compose down -v` or removing the app's volumes deletes it.
+
+To keep it in a folder you choose instead (easier to back up and snapshot, e.g. on a NAS):
+
+1. Create the folder and make it writable by user `568`, which the container runs as:
+   `sudo mkdir -p /path/to/folder && sudo chown 568:568 /path/to/folder`
+   (TrueNAS: a dataset with the **Apps** permission preset does the same.)
+2. In `docker-compose.yml`, replace `- printfloor-data:/data` with `- /path/to/folder:/data` and delete the
+   `volumes:` block at the bottom.
+
+If the container keeps restarting with `unable to open database file` in its log, the folder isn't writable by
+568 (step 1).
 
 **Docker Desktop (Windows / Mac):** host networking may not be available, so printer discovery may not work.
 Use port mapping instead (replace `--network host` with `-p 8765:8765`) and add printers by IP address. Running
@@ -186,9 +199,11 @@ Everything else is configured in the app (gear menu):
 
 - **Add printer**: from your Bambu account, from a network search (U1 / Klipper / CC), or by IP.
 - **Bambu account**: sign in (email code or authenticator app). The token is stored server-side only.
-- **Govee plugs**: paste the API key; it is stored server-side only and never shown again.
+- **Govee plugs**: paste your Govee API key, then pick which printer each plug powers. Full walkthrough:
+  [docs/govee.md](docs/govee.md). The key is stored server-side only and never shown again.
 - **Dashboard & locations**: dashboard name, banner on/off, locations and the default location.
-- **Manage tags**, **Job history**, **Appearance**.
+- **Manage tags**: add tags, choose which printers have each one, rename or delete them everywhere.
+- **Job history**, **Appearance**.
 
 ## Using the dashboard
 
@@ -205,6 +220,20 @@ Everything else is configured in the app (gear menu):
 
 Filters, sort, view and grouping are remembered **per browser**. The dashboard name, locations, printers and
 all other settings are **shared** by every browser.
+
+### Install it as an app (iPad, iPhone, desktop)
+
+The dashboard can sit on your home screen and open full screen, without the browser bars. It's the same
+dashboard, using your dashboard name and the PF PrintFloor icon.
+
+- **iPad / iPhone (Safari):** open the dashboard → **Share** → **Add to Home Screen** → **Add**. Works on your
+  local network address (for example `http://192.168.1.50:8765`).
+- **Android (Chrome):** menu (⋮) → **Add to Home screen** or **Install app**.
+- **Desktop (Chrome / Edge):** the install icon in the address bar. Chrome and Edge only offer this on
+  `https://` or `localhost`; on a plain `http://` network address use a bookmark instead.
+
+In the installed app there's no browser reload button, so **Settings → Reload** appears there. Renaming the
+dashboard later doesn't rename an icon already on the home screen; remove it and add it again.
 
 ## Remote access and security
 
@@ -320,6 +349,9 @@ These are deliberate rules or printer quirks that can look odd.
   followed by a move before the dashboard's next poll (15 s) is missed.
 
 ### Smart plugs (Govee)
+
+Setup (getting the API key, linking it, matching plugs to printers) and troubleshooting:
+**[docs/govee.md](docs/govee.md)**.
 
 - **Rate limit**: Govee allows about 10,000 requests a day. Background polling stops after 3,000 of the
   dashboard's own requests (or when fewer than 2,000 remain), so on/off and emergency stop always have room.

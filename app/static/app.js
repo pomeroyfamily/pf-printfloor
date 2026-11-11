@@ -820,8 +820,10 @@ function setupLayoutDlg() {
     const err = $("#layError");
     if (lay.draft.some((x) => !x.name.trim())) { err.textContent = "Every location needs a name (or delete the empty one)."; return; }
     try {
-      await api("PUT", "/api/dashboard", { name: $("#layName").value.trim() || null, banner: $("#layBanner").checked });
-      await api("PUT", "/api/locations", { items: lay.draft.map((x) => (x.id ? { id: x.id, name: x.name } : { ref: x.key, name: x.name })), default: lay.def });
+      // apply what the server saved right away; don't wait for the live update stream
+      state.layout.dashboard = await api("PUT", "/api/dashboard", { name: $("#layName").value.trim() || null, banner: $("#layBanner").checked });
+      state.layout.locations = await api("PUT", "/api/locations", { items: lay.draft.map((x) => (x.id ? { id: x.id, name: x.name } : { ref: x.key, name: x.name })), default: lay.def });
+      applyLayout(); renderAll();
       $("#layoutDlg").close();
     } catch (ex) { err.textContent = ex.message; }
   });
@@ -845,55 +847,116 @@ function setupFilter() {
   });
 }
 
+state.tagList = [];   // from /api/tags: [{name, count, printers: [ids]}], includes tags no printer has yet
+state.tagOpen = new Set();
+
+async function loadTags() {
+  try { state.tagList = await api("GET", "/api/tags"); } catch { /* keep what we had */ }
+  const typing = document.activeElement?.matches?.("#tagsBody input:not([type=checkbox])");
+  if ($("#tagsDlg").open && !typing) renderTagsDlg();
+}
+
 function allTags() {
   const seen = new Map();
+  for (const t of state.tagList) seen.set(t.name.toLowerCase(), t.name);
   for (const p of state.printers) for (const t of p.tags || []) if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t);
   return [...seen.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
-// ---------------------------------------------------------------- manage tags (rename / delete everywhere)
+// ---------------------------------------------------------------- manage tags (add / rename / delete / which printers)
 function renderTagsDlg(msg = "") {
-  const counts = {};
-  for (const p of state.printers) for (const t of p.tags || []) counts[t.toLowerCase()] = (counts[t.toLowerCase()] || 0) + 1;
+  const has = (p, t) => (p.tags || []).some((x) => x.toLowerCase() === t.toLowerCase());
   const tags = allTags();
-  $("#tagsBody").innerHTML = tags.length ? `
-    <p class="note">Renaming or deleting changes the tag on every printer that has it.</p>
-    <ul class="tag-admin">${tags.map((t) => `
+  const printers = [...state.printers].sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }));
+  $("#tagsBody").innerHTML = `
+    <form class="tag-new" data-newtag>
+      <input name="tag" maxlength="30" placeholder='New tag, e.g. "0.6 nozzle"' aria-label="New tag">
+      <button type="submit" class="btn primary">Add tag</button>
+    </form>
+    ${tags.length ? `
+    <p class="note">Click <b>Printers</b> to choose which printers have a tag. Renaming or deleting changes it on every
+      printer. You can also add tags to one printer in its Details.</p>
+    <ul class="tag-admin">${tags.map((t) => {
+      const n = printers.filter((p) => has(p, t)).length;
+      const open = state.tagOpen.has(t.toLowerCase());
+      return `
       <li data-tag="${esc(t)}">
         <input value="${esc(t)}" maxlength="30" aria-label="Rename ${esc(t)}">
-        <span class="muted">${counts[t.toLowerCase()]} printer${counts[t.toLowerCase()] === 1 ? "" : "s"}</span>
+        <button type="button" class="btn" data-tagprinters aria-expanded="${open}">${n} printer${n === 1 ? "" : "s"} ${open ? "▴" : "▾"}</button>
         <button type="button" class="btn" data-rename>Rename</button>
         <button type="button" class="btn danger${state.tagArmed === t ? " armed" : ""}" data-deltag>${state.tagArmed === t ? "Click again" : "Delete"}</button>
-      </li>`).join("")}</ul>
-    <p class="form-error" role="alert">${esc(msg)}</p>`
-    : `<p class="note">No tags yet. Open a printer's Details and add tags there, e.g. "hardened steel" or "0.6 nozzle".</p>`;
+        ${open ? `<div class="tag-printers">${printers.length ? printers.map((p) => `
+          <label class="check"><input type="checkbox" data-tagpid="${esc(p.id)}"${has(p, t) ? " checked" : ""}> ${esc(p.name || p.model || p.host)}</label>`).join("")
+          : `<span class="muted">No printers yet.</span>`}</div>` : ""}
+      </li>`;
+    }).join("")}</ul>` : `<p class="note">No tags yet. Add one above, then choose which printers have it.</p>`}
+    <p class="form-error" role="alert">${esc(msg)}</p>`;
+}
+
+async function setTagPrinters(name, ids) {
+  state.tagList = state.tagList.filter((t) => t.name.toLowerCase() !== name.toLowerCase());
+  state.tagList.push(await api("PUT", "/api/tags", { name, printers: ids }));
 }
 
 function setupTags() {
-  $("#tagsBtn").addEventListener("click", () => { state.tagArmed = null; renderTagsDlg(); $("#tagsDlg").showModal(); });
+  $("#tagsBtn").addEventListener("click", () => {
+    state.tagArmed = null; state.tagOpen.clear(); renderTagsDlg(); $("#tagsDlg").showModal(); loadTags();
+  });
+  $("#tagsBody").addEventListener("submit", async (e) => {
+    if (!e.target.closest("[data-newtag]")) return;
+    e.preventDefault();
+    const name = e.target.tag.value.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    const known = allTags().find((t) => t.toLowerCase() === name.toLowerCase());
+    if (known) { state.tagOpen.add(known.toLowerCase()); renderTagsDlg(`"${known}" already exists.`); return; }
+    try {
+      await setTagPrinters(name, []);
+      state.tagOpen.add(name.toLowerCase());
+      renderTagsDlg();
+    } catch (err) { renderTagsDlg(err.message); }
+  });
+  $("#tagsBody").addEventListener("change", async (e) => {
+    const box = e.target.closest("[data-tagpid]");
+    if (!box) return;
+    const t = box.closest("li[data-tag]").dataset.tag;
+    const ids = [...box.closest(".tag-printers").querySelectorAll("[data-tagpid]:checked")].map((x) => x.dataset.tagpid);
+    try { await setTagPrinters(t, ids); renderTagsDlg(); } catch (err) { renderTagsDlg(err.message); }
+    $(`#tagsBody li[data-tag="${CSS.escape(t)}"] [data-tagpid="${CSS.escape(box.dataset.tagpid)}"]`)?.focus();
+  });
   $("#tagsBody").addEventListener("click", async (e) => {
     const li = e.target.closest("li[data-tag]");
     if (!li) return;
     const old = li.dataset.tag;
+    if (e.target.closest("[data-tagprinters]")) {
+      const k = old.toLowerCase();
+      state.tagOpen.has(k) ? state.tagOpen.delete(k) : state.tagOpen.add(k);
+      renderTagsDlg();
+    }
     if (e.target.closest("[data-rename]")) {
       const nw = li.querySelector("input").value.trim();
       if (!nw || nw === old) return;
-      try { await api("POST", "/api/tags/retag", { old, new: nw }); } catch (err) { renderTagsDlg(err.message); }
+      try {
+        await api("POST", "/api/tags/retag", { old, new: nw });
+        if (state.tagOpen.delete(old.toLowerCase())) state.tagOpen.add(nw.toLowerCase());
+        await loadTags(); renderTagsDlg();
+      } catch (err) { renderTagsDlg(err.message); }
     }
     if (e.target.closest("[data-deltag]")) {
       if (state.tagArmed !== old) { state.tagArmed = old; renderTagsDlg(); return; }
       state.tagArmed = null;
-      try { await api("POST", "/api/tags/retag", { old, new: null }); } catch (err) { renderTagsDlg(err.message); }
+      try { await api("POST", "/api/tags/retag", { old, new: null }); await loadTags(); renderTagsDlg(); }
+      catch (err) { renderTagsDlg(err.message); }
     }
   });
   $("#tagsBody").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && e.target.closest("li[data-tag] input")) { e.preventDefault(); e.target.closest("li").querySelector("[data-rename]").click(); }
+    if (e.key === "Enter" && e.target.closest("li[data-tag] > input")) { e.preventDefault(); e.target.closest("li").querySelector("[data-rename]").click(); }
   });
 }
 
 // ---------------------------------------------------------------- usage (Details) + job history
 state.usage = {};
 const fmtH = (s) => s == null ? "" : `${(s / 3600).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h`;
+const fmtAvg = (s) => s < 3600 ? `${Math.round(s / 60)} min` : fmtH(s);   // short jobs read better in minutes
 const fmtN = (n) => n == null ? "" : n.toLocaleString();
 const jobsN = (n) => `${fmtN(n)} job${n === 1 ? "" : "s"}`;
 const NO_RATE = `<span class="sub">No ended jobs yet</span>`;
@@ -949,6 +1012,8 @@ function usageHTML(p) {
       ["Success rate", u.success_rate == null ? NO_RATE : `${u.success_rate}% <span class="sub">(${u.finished} finished, ${u.failed} failed since tracking began)</span>`],
       ["Before tracking", `${esc(fmtH(u.baseline_seconds))}, ${esc(jobsN(u.baseline_jobs))} <span class="sub">(${src})</span> ${state.usageEdit ? "" : `<button type="button" class="link-btn" data-usage="edit">Edit</button>`}`],
       ["Tracked here", `${esc(fmtH(u.tracked_seconds))}, ${esc(jobsN(u.tracked_jobs))} <span class="sub">since ${esc(fmtDate([u.first_job_at, u.tracking_since].filter(Boolean).sort()[0]))}</span>`],
+      ["Average per job", u.avg_job_seconds == null ? `<span class="sub">No ended jobs yet</span>`
+        : `${esc(fmtAvg(u.avg_job_seconds))} <span class="sub">(${esc(jobsN(u.avg_jobs))} tracked here${u.avg_jobs < u.tracked_jobs ? ", not counting the one printing" : ""})</span>`],
     ])}
     ${edit}${auditHTML}
     ${u.recent.length ? `<h4 class="minor">Recent jobs</h4><ul class="job-list">${u.recent.map((j) => jobRow(j)).join("")}</ul>` : `<p class="muted">No jobs recorded yet.</p>`}
@@ -1097,7 +1162,7 @@ function cycleSettingsHTML(p) {
       <label class="field"><span>Daily at</span><input type="time" name="time" value="${esc(a.time)}" required></label>
       <label class="field"><span>After idle for (minutes)</span><input type="number" name="idle_min" min="1" max="1440" step="1" value="${esc(a.idle_min)}" required></label>
     </div>
-    <p class="note">Plug off, 15 seconds, plug on. Only when the printer is Finished or Idle with a print since the last power cycle, the nozzle is cool and nothing else is running. Skipped that day if it was power cycled from the dashboard less than 12 hours before; more than 24 hours since the last one and it runs once the current print is done.${a.last_cycle ? ` Last power cycle: ${esc(fmtWhen(a.last_cycle))}.` : ""}${c ? ` Now: ${esc(c.text)}${c.tip ? ` (${esc(c.tip)})` : ""}.` : ""}</p>
+    <p class="note">Plug off, 15 seconds, plug on. Only when the printer is Finished or Idle with a print since the last power cycle, the nozzle is cool and nothing else is running. Skipped that day if it was power cycled from the dashboard less than 12 hours before; more than 24 hours since the last one and it runs once the current print is done.${a.last_cycle ? ` Last power cycle: ${esc(fmtWhen(a.last_cycle))}.` : ""}${c ? ` Now: ${esc(c.text)}${c.tip ? ` (${esc(c.tip)})` : ""}.` : ""} <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md#5-optional-daily-power-cycle" target="_blank" rel="noopener">How it works</a></p>
     <div class="row-actions"><button class="btn" type="submit">Save</button></div>
     <p class="form-error" data-cycle-error role="alert"></p>
   </form>`;
@@ -1188,25 +1253,94 @@ function renderPlugsDlg() {
   const g = state.govee;
   const box = $("#plugsBody");
   if (!g?.linked) {
-    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (Profile, Settings, Apply for API Key); Govee emails it to you.</p>
+    box.innerHTML = `<p class="note">Lets you turn printers on and off from the dashboard, including an emergency stop. Get an API key in the Govee Home app (person tab, gear icon, Apply for API Key); Govee emails it to you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">Step-by-step guide</a></p>
       <form id="goveeForm" novalidate><label class="field"><span>Govee API key</span><input name="key" type="password" autocomplete="off" required></label>
       <p class="form-error" id="goveeError" role="alert"></p>
       <div class="row-actions"><button class="btn primary" type="submit">Link Govee account</button></div></form>
       <p class="note">The key is stored on the dashboard server only and never shown again.</p>`;
     return;
   }
-  const name = (pid) => state.printers.find((q) => q.id === pid)?.name;
   const u = g.usage || {};
-  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Set which printer uses which plug in each printer's Details, under Power.</p>
-    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. Plug states are checked every 15 minutes${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
+  // Pick the printer for each plug right here. Unassigned plugs are pre-filled when the plug's name matches a
+  // printer (suggestion); nothing is saved until "Save".
+  const sugByDev = Object.fromEntries(Object.entries(g.suggestions || {}).map(([pid, dev]) => [dev, pid]));
+  const draft = state.plugDraft || (state.plugDraft = {});
+  const cyc = state.cycleDraft || (state.cycleDraft = {});
+  const chosen = (x) => x.device in draft ? draft[x.device] : (x.printer_id || sugByDev[x.device] || "");
+  const cycleNow = (pid) => !!state.printers.find((q) => q.id === pid)?.autocycle?.enabled;
+  const cycleOn = (x) => { const pid = chosen(x); return !!pid && (x.device in cyc ? cyc[x.device] : cycleNow(pid)); };
+  const changed = g.plugs.filter((x) => chosen(x) !== (x.printer_id || "") || (chosen(x) && cycleOn(x) !== cycleNow(chosen(x))));
+  const picks = g.plugs.map(chosen).filter(Boolean);
+  const dup = picks.find((pid, i) => picks.indexOf(pid) !== i);
+  const printers = [...state.printers].sort((a, b) => a.name.localeCompare(b.name));
+  const sel = (x) => `<select data-assign-plug="${esc(x.device)}" aria-label="Printer on plug ${esc(x.name)}">
+      <option value="">Not used</option>${printers.map((q) => `<option value="${esc(q.id)}" ${chosen(x) === q.id ? "selected" : ""}>${esc(q.name)}</option>`).join("")}</select>`;
+  box.innerHTML = `<p class="note">Linked. ${g.plugs.length} plug${g.plugs.length === 1 ? "" : "s"} on the account. Pick the printer each plug powers, then <b>Save</b>. Plugs named like a printer are filled in for you. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md" target="_blank" rel="noopener">How Govee plugs work</a></p>
     ${g.error ? `<p class="note warn">${esc(g.error)}</p>` : ""}
-    <table class="usage-table"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th></tr></thead><tbody>
-    ${g.plugs.map((x) => `<tr><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td><td>${esc(name(x.printer_id) || "")}</td></tr>`).join("")}
+    <table class="usage-table plug-assign"><thead><tr><th>Plug</th><th>Power</th><th>Printer</th><th title="Optional: power cycle the printer once a day">Daily power cycle</th></tr></thead><tbody>
+    ${g.plugs.map((x) => {
+      const isSug = !x.printer_id && !(x.device in draft) && sugByDev[x.device];
+      const dirty = chosen(x) !== (x.printer_id || "");
+      const pid = chosen(x);
+      return `<tr class="${dirty || (pid && cycleOn(x) !== cycleNow(pid)) ? "dirty" : ""}"><td>${esc(x.name)}</td><td>${x.on === true ? "On" : x.on === false ? "Off" : ""}</td>
+        <td>${sel(x)}${isSug ? ` <span class="sub">suggested</span>` : ""}</td>
+        <td><input type="checkbox" class="toggle" data-cycle-plug="${esc(x.device)}" ${cycleOn(x) ? "checked" : ""} ${pid ? "" : "disabled"} aria-label="Daily power cycle for the printer on ${esc(x.name)}"></td></tr>`;
+    }).join("")}
     </tbody></table>
+    <p class="note">Daily power cycle (optional): the plug turns off for 15 seconds, then back on, once a day. New ones start at <b>6:00 AM</b>, only after the printer has been finished or idle for <b>30 minutes</b>, is cool and has printed since the last cycle. Change the time and the idle minutes for each printer in its <b>Details → Power</b>. <a href="https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/govee.md#5-optional-daily-power-cycle" target="_blank" rel="noopener">How it works</a></p>
+    <p class="form-error" id="plugAssignError" role="alert">${dup ? `${esc(state.printers.find((q) => q.id === dup)?.name || "A printer")} is picked for two plugs.` : ""}</p>
+    <div class="row-actions"><button class="btn primary" type="button" data-assign-save ${changed.length && !dup ? "" : "disabled"}>${changed.length ? `Save ${changed.length} change${changed.length === 1 ? "" : "s"}` : "Saved"}</button></div>
+    <p class="note">Govee requests today: ${u.sent_today ?? 0}${u.remaining != null ? ` (Govee says ${u.remaining.toLocaleString()} left of ${u.daily_limit.toLocaleString()})` : ` of about ${(u.daily_limit || 10000).toLocaleString()} allowed per day`}. A plug's state is checked every 5 minutes while its printer is offline${u.polling ? "" : ". <b>Checking is paused for today to keep requests free for turning plugs on and off.</b>"}</p>
     <div class="row-actions" style="margin-top:12px"><button class="btn danger${state.govArm ? " armed" : ""}" type="button" data-govee-unlink>${state.govArm ? "Click again to unlink" : "Unlink Govee"}</button></div>`;
 }
+async function savePlugAssignments() {
+  const g = state.govee, draft = state.plugDraft || {};
+  const sugByDev = Object.fromEntries(Object.entries(g.suggestions || {}).map(([pid, dev]) => [dev, pid]));
+  const want = Object.fromEntries(g.plugs.map((x) => [x.device, x.device in draft ? draft[x.device] : (x.printer_id || sugByDev[x.device] || "")]));
+  const err = $("#plugAssignError");
+  try {
+    // 1) clear printers that lose their plug or get a different one (so no "already set for" conflicts), 2) set
+    const clear = new Set(), set = [];
+    for (const x of g.plugs) {
+      const to = want[x.device];
+      if (to === (x.printer_id || "")) continue;
+      if (x.printer_id) clear.add(x.printer_id);
+      if (to) { clear.add(to); set.push([to, x.device]); }
+    }
+    for (const pid of clear) await api("PUT", `/api/printers/${pid}/plug`, { device: null });
+    for (const [pid, dev] of set) await api("PUT", `/api/printers/${pid}/plug`, { device: dev });
+    // daily power cycle toggles: keep each printer's own time / idle minutes (defaults 6:00 AM, 30 min)
+    let tz = null;
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (_) { /* old browser */ }
+    const cyc = state.cycleDraft || {};
+    for (const x of g.plugs) {
+      const pid = want[x.device];
+      if (!pid || !(x.device in cyc)) continue;
+      const a = state.printers.find((q) => q.id === pid)?.autocycle || {};
+      if (!!a.enabled === cyc[x.device]) continue;
+      await api("PUT", `/api/printers/${pid}/autocycle`, { enabled: cyc[x.device], time: a.time || "06:00", idle_min: a.idle_min || 30, tz });
+    }
+    state.plugDraft = {}; state.cycleDraft = {};
+    await loadGovee();
+    renderPlugsDlg();
+  } catch (e) { if (err) err.textContent = e.message; await loadGovee(); }
+}
 function setupPlugsDlg() {
-  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
+  $("#plugsBtn").addEventListener("click", async () => { state.govArm = false; state.plugDraft = {}; state.cycleDraft = {}; renderPlugsDlg(); $("#plugsDlg").showModal(); await loadGovee(); });
+  $("#plugsBody").addEventListener("change", (e) => {
+    const cdev = e.target.dataset?.cyclePlug;
+    if (cdev != null) {
+      state.cycleDraft = { ...(state.cycleDraft || {}), [cdev]: e.target.checked };
+      renderPlugsDlg();
+      $(`[data-cycle-plug="${CSS.escape(cdev)}"]`)?.focus();
+      return;
+    }
+    const dev = e.target.dataset?.assignPlug;
+    if (dev == null) return;
+    state.plugDraft = { ...(state.plugDraft || {}), [dev]: e.target.value };
+    renderPlugsDlg();
+    $(`[data-assign-plug="${CSS.escape(dev)}"]`)?.focus();
+  });
   $("#plugsBody").addEventListener("submit", async (e) => {
     if (e.target.id !== "goveeForm") return;
     e.preventDefault();
@@ -1215,6 +1349,8 @@ function setupPlugsDlg() {
     catch (err) { $("#goveeError").textContent = err.message; }
   });
   $("#plugsBody").addEventListener("click", async (e) => {
+    const save = e.target.closest("[data-assign-save]");
+    if (save) { save.disabled = true; save.textContent = "Saving…"; await savePlugAssignments(); return; }
     if (!e.target.closest("[data-govee-unlink]")) return;
     if (!state.govArm) { state.govArm = true; renderPlugsDlg(); return; }
     state.govArm = false;
@@ -2033,17 +2169,25 @@ function renderAccount(step, msg, box = $("#accountBody"), onDone = null) {
 }
 
 // ---------------------------------------------------------------- live updates
+const LIVE_SILENT_MS = 45000;   // the server sends at least a ping every 15 s
+let liveES = null, liveLast = 0;
+setInterval(() => {               // a stream that went quiet (sleep, Wi-Fi drop, dropped by the server): start over
+  if (liveES && Date.now() - liveLast > LIVE_SILENT_MS) { liveES.close(); connect(); }
+}, 10000);
 function connect() {
   const es = new EventSource("/api/events");
-  es.onopen = () => { $("#liveBanner").hidden = true; };
+  liveES = es; liveLast = Date.now();
+  es.onopen = () => { liveLast = Date.now(); $("#liveBanner").hidden = true; };
   es.onerror = () => { $("#liveBanner").hidden = false; };
   es.onmessage = (m) => {
+    liveLast = Date.now();
     const ev = JSON.parse(m.data);
+    if (ev.type === "ping") return;
     if (ev.type === "printers") {
       if (ev.layout) { state.layout = ev.layout; applyLayout(); }
       state.printers = ev.printers; renderAll();
       if (!$("#addDlg").open) fillLocSelect();
-      if ($("#tagsDlg").open && !(document.activeElement?.tagName === "INPUT" && $("#tagsBody").contains(document.activeElement))) renderTagsDlg();
+      loadTags();
     }
     else if (ev.type === "status") {
       const p = state.printers.find((x) => x.id === ev.id);
@@ -2178,6 +2322,12 @@ setupGroups();
 setupLocs();
 setupLayoutDlg();
 setupTags();
+// installed as an app (home screen): no browser reload button, so offer one in Settings
+if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
+  $("#reloadBtn").hidden = false;
+  $("#reloadBtn").addEventListener("click", () => location.reload());
+}
+loadTags();
 setupUsage();
 setupHistory();
 setupPower();

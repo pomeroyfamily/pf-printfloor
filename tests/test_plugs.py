@@ -273,3 +273,13 @@ def test_plug_that_never_switches_is_reported_not_faked(env):
     view = next(p for p in c.get("/api/printers").json() if p["id"] == pid)["power"]
     assert view["on"] is True                                                # shows the truth, not what we asked for
     assert c.get(f"/api/printers/{pid}/power").json()["log"][0]["ok"] is False
+
+
+def test_suggestions_give_each_plug_to_its_closest_printer():
+    from app.plugs import suggest_plugs
+    plugs = [{"device": d, "name": n} for d, n in [("d1", "A1"), ("d2", "X1"), ("d3", "U1-1"), ("d4", "P1-2")]]
+    printers = [("a11", "A1-1"), ("am1", "A1 mini-1"), ("am2", "A1 mini-2"), ("x1c", "X1C"), ("u11", "U1-1"),
+                ("p12", "P1-2"), ("cc", "Centauri Carbon")]
+    got = suggest_plugs(printers, plugs, set())
+    assert got == {"a11": "d1", "x1c": "d2", "u11": "d3", "p12": "d4"}         # not A1 for the A1 minis
+    assert suggest_plugs(printers, plugs, {"d1"}).get("a11") is None           # a taken plug isn't suggested
