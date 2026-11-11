@@ -637,3 +637,6 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 .about-ver { color: var(--muted); font-weight: 600; }
 .about-links a, .about .note a { color: var(--printing); }
 .about .note { font-size: 13px; }
+
+.printer-help { margin: -4px 0 12px; }
+.printer-help a { color: var(--printing); font-weight: 600; }

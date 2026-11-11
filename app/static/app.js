@@ -2025,12 +2025,28 @@ async function submitAccountImport() {
   }
 }
 
+// Printer notes page per driver family (cameras, quirks, what each printer can report)
+const DOCS = "https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/printers/";
+const PRINTER_DOCS = { bambu: "bambu-lab.md", snapmaker: "snapmaker-u1.md", elegoo: "elegoo-centauri-carbon.md",
+                       klipper: "klipper.md" };
+function printerDocs(driver) {
+  const f = PRINTER_DOCS[(driver || "").split(".")[0]];
+  return f ? DOCS + f : null;
+}
+function renderAddHelp() {
+  const url = printerDocs($("#addModel").value);
+  $("#addHelp").hidden = !url;
+  if (url) $("#addHelp").innerHTML = `Setup tips, camera and what this printer can report:
+    <a href="${esc(url)}" target="_blank" rel="noopener">${esc($("#addMaker").value)} notes</a>`;
+}
+
 function fillModels() {
   const maker = state.catalog.find((m) => m.maker === $("#addMaker").value);
   $("#addModel").innerHTML = (maker?.models || []).map((m) =>
     `<option value="${esc(m.driver)}" ${m.available ? "" : "disabled"}>${esc(m.model)}${m.available ? "" : " (coming soon)"}</option>`).join("");
   const first = maker?.models.find((m) => m.available);
   if (first) $("#addModel").value = first.driver;
+  renderAddHelp();
   fillFields();
   renderHow();
   applyAddMode();
@@ -2241,7 +2257,7 @@ $("#settingsMenu").addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) setMenu(false); });
 $("#addBtn").addEventListener("click", openAdd);
 $("#addMaker").addEventListener("change", fillModels);
-$("#addModel").addEventListener("change", fillFields);
+$("#addModel").addEventListener("change", () => { renderAddHelp(); fillFields(); });
 $("#addHow").addEventListener("change", applyAddMode);
 $("#addForm").addEventListener("submit", submitAdd);
 $("#accountBtn").addEventListener("click", () => { renderAccount(); $("#accountDlg").showModal(); });
