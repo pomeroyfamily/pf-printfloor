@@ -72,9 +72,11 @@ async def _read_pkt(r: asyncio.StreamReader):
 class FakeBambu:
     def __init__(self, tmp: Path, fixture: dict, serial: str = "01S099000000014", code: str = "12345678",
                  deltas: Optional[list[dict]] = None, delta_interval: float = 0.05, silent_after: bool = False,
-                 no_rest: bool = False, user: str = "bblp"):
+                 no_rest: bool = False, user: str = "bblp", ftps: bool = True):
         self.tmp, self.fixture, self.serial, self.code = tmp, fixture, serial, code
         self.user = user            # "u_<uid>" + token for a fake Bambu cloud broker
+        self.ftps = ftps            # False: no fake FTPS server (tests that never read files)
+        self._ftp_thread: Optional[threading.Thread] = None
         self.deltas = deltas or []
         self.delta_interval = delta_interval
         self.silent_after = silent_after
@@ -175,18 +177,24 @@ class FakeBambu:
         Implicit.certfile, Implicit.keyfile = str(self.cert), str(self.key)
         Implicit.tls_control_required = Implicit.tls_data_required = True
         self._ftp = ThreadedFTPServer(("127.0.0.1", self.ftps_port), Implicit)
-        threading.Thread(target=self._ftp.serve_forever, kwargs={"handle_exit": False}, daemon=True).start()
+        self._ftp_thread = threading.Thread(target=self._ftp.serve_forever, kwargs={"handle_exit": False}, daemon=True)
+        self._ftp_thread.start()
 
     # ---------------------------------------------------------------- lifecycle
     async def __aenter__(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(self.cert, self.key)
         self._server = await asyncio.start_server(self._handle, "127.0.0.1", self.mqtt_port, ssl=ctx)
-        self._start_ftps()
+        if self.ftps:
+            self._start_ftps()
         return self
 
     async def __aexit__(self, *exc):
         if self._server:
             self._server.close()
         if self._ftp:
+            # Close and WAIT for the server thread. Without the wait, its loop could still be running when the next
+            # test opens a socket that reuses the same file number, and close it ("Bad file descriptor" on GitHub).
             self._ftp.close_all()
+            if self._ftp_thread:
+                await asyncio.to_thread(self._ftp_thread.join, 5)
