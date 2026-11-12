@@ -59,8 +59,10 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 |---|---|
 | ![Camera wall](docs/screenshots/camera-wall.jpg) **Camera wall**: every camera at once, streaming only while open | ![Single camera](docs/screenshots/camera-single.jpg) **One printer's camera** from its card |
 | ![List view](docs/screenshots/list-view.png) **List view**, sortable by any column | ![Compact view](docs/screenshots/compact-expanded.png) **Compact view**, a card expanded |
-| ![Details panel](docs/screenshots/details-panel.png) **Details**: job, print hours, history | ![Smart plug](docs/screenshots/smart-plug.png) **Smart plug**: on/off and an optional daily power cycle |
-| ![Job history](docs/screenshots/job-history.png) **Job history** for the whole fleet, with CSV export (light theme) | ![Govee plugs](docs/screenshots/govee-plugs.png) **Govee account**: which plug powers which printer, request budget |
+| ![Details panel](docs/screenshots/details-panel.png) **Details**: job, print hours, average per job, history | ![Smart plug](docs/screenshots/smart-plug.png) **Smart plug**: on/off and an optional daily power cycle |
+| ![Job history](docs/screenshots/job-history.png) **Job history** for the whole fleet, with CSV export (light theme) | ![Govee plugs](docs/screenshots/govee-plugs.png) **Govee plugs**: which plug powers which printer, daily power cycle, offline plugs, request budget |
+| ![Manage tags](docs/screenshots/manage-tags.png) **Manage tags**: add tags and pick which printers have each one | ![About](docs/screenshots/about.png) **About**: version and project links |
+| ![Add printer](docs/screenshots/add-printer.png) **Add printer**: from your Bambu account, a network search, or by address, with notes for each maker | |
 
 **On a phone**, light or dark:
 
