@@ -2193,18 +2193,38 @@ function renderAccount(step, msg, box = $("#accountBody"), onDone = null) {
 }
 
 // ---------------------------------------------------------------- live updates
-const LIVE_SILENT_MS = 45000;   // the server sends at least a ping every 15 s
-let liveES = null, liveLast = 0;
+const LIVE_SILENT_MS = 35000;   // the server sends at least a ping every 15 s
+let liveES = null, liveLast = 0, liveDataAt = 0, liveOk = true;
+// Not connected to the dashboard server: everything on screen is old. Grey it out and say since when, so it's never
+// mistaken for live status.
+function setLive(ok) {
+  liveOk = ok;
+  document.body.classList.toggle("stale", !ok);
+  $("#liveBanner").hidden = ok;
+  if (!ok) {
+    $("#liveBanner").textContent = liveDataAt
+      ? `Not connected to the dashboard server. Showing status from ${new Date(liveDataAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Reconnecting…`
+      : "Not connected to the dashboard server. Reconnecting…";
+  }
+}
+function reconnect() { if (liveES) liveES.close(); connect(); }
 setInterval(() => {               // a stream that went quiet (sleep, Wi-Fi drop, dropped by the server): start over
-  if (liveES && Date.now() - liveLast > LIVE_SILENT_MS) { liveES.close(); connect(); }
-}, 10000);
+  if (liveES && Date.now() - liveLast > LIVE_SILENT_MS) { setLive(false); reconnect(); }
+}, 5000);
+addEventListener("offline", () => setLive(false));
+addEventListener("online", reconnect);
+addEventListener("pageshow", (e) => { if (e.persisted) { setLive(false); reconnect(); } });   // back/forward cache
+document.addEventListener("visibilitychange", () => {   // woke up / tab shown again after a while: check right away
+  if (document.visibilityState === "visible" && Date.now() - liveLast > 20000) { setLive(false); reconnect(); }
+});
 function connect() {
   const es = new EventSource("/api/events");
   liveES = es; liveLast = Date.now();
-  es.onopen = () => { liveLast = Date.now(); $("#liveBanner").hidden = true; };
-  es.onerror = () => { $("#liveBanner").hidden = false; };
+  es.onopen = () => { liveLast = Date.now(); };
+  es.onerror = () => setLive(false);
   es.onmessage = (m) => {
-    liveLast = Date.now();
+    liveLast = liveDataAt = Date.now();
+    if (!liveOk) setLive(true);
     const ev = JSON.parse(m.data);
     if (ev.type === "ping") return;
     if (ev.type === "printers") {
