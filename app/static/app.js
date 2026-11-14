@@ -2193,18 +2193,38 @@ function renderAccount(step, msg, box = $("#accountBody"), onDone = null) {
 }
 
 // ---------------------------------------------------------------- live updates
-const LIVE_SILENT_MS = 45000;   // the server sends at least a ping every 15 s
-let liveES = null, liveLast = 0;
+const LIVE_SILENT_MS = 35000;   // the server sends at least a ping every 15 s
+let liveES = null, liveLast = 0, liveDataAt = 0, liveOk = true;
+// Not connected to the dashboard server: everything on screen is old. Grey it out and say since when, so it's never
+// mistaken for live status.
+function setLive(ok) {
+  liveOk = ok;
+  document.body.classList.toggle("stale", !ok);
+  $("#liveBanner").hidden = ok;
+  if (!ok) {
+    $("#liveBanner").textContent = liveDataAt
+      ? `Not connected to the dashboard server. Showing status from ${new Date(liveDataAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Reconnecting…`
+      : "Not connected to the dashboard server. Reconnecting…";
+  }
+}
+function reconnect() { if (liveES) liveES.close(); connect(); }
 setInterval(() => {               // a stream that went quiet (sleep, Wi-Fi drop, dropped by the server): start over
-  if (liveES && Date.now() - liveLast > LIVE_SILENT_MS) { liveES.close(); connect(); }
-}, 10000);
+  if (liveES && Date.now() - liveLast > LIVE_SILENT_MS) { setLive(false); reconnect(); }
+}, 5000);
+addEventListener("offline", () => setLive(false));
+addEventListener("online", reconnect);
+addEventListener("pageshow", (e) => { if (e.persisted) { setLive(false); reconnect(); } });   // back/forward cache
+document.addEventListener("visibilitychange", () => {   // woke up / tab shown again after a while: check right away
+  if (document.visibilityState === "visible" && Date.now() - liveLast > 20000) { setLive(false); reconnect(); }
+});
 function connect() {
   const es = new EventSource("/api/events");
   liveES = es; liveLast = Date.now();
-  es.onopen = () => { liveLast = Date.now(); $("#liveBanner").hidden = true; };
-  es.onerror = () => { $("#liveBanner").hidden = false; };
+  es.onopen = () => { liveLast = Date.now(); };
+  es.onerror = () => setLive(false);
   es.onmessage = (m) => {
-    liveLast = Date.now();
+    liveLast = liveDataAt = Date.now();
+    if (!liveOk) setLive(true);
     const ev = JSON.parse(m.data);
     if (ev.type === "ping") return;
     if (ev.type === "printers") {
@@ -2314,7 +2334,32 @@ $("#cardDlg").addEventListener("click", (e) => {
   if (e.target.closest("[data-overlay-close]")) $("#cardDlg").close();   // Details: global handler opens it on top
 });
 $("#cardDlg").addEventListener("close", () => { state.overlayId = null; });
-$("#camDlg").addEventListener("close", closeCameraStream);
+$("#camDlg").addEventListener("close", () => { setCamFull(false); closeCameraStream(); });
+// Full screen: the real thing where the browser allows it (desktop, iPad), otherwise the popup fills the window
+// (iPhone Safari only allows full screen for <video>).
+function camFullNow() { return $("#camDlg").classList.contains("full"); }
+function setCamFull(on) {
+  const dlg = $("#camDlg");
+  dlg.classList.toggle("full", on);
+  $("#camFull").setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (on && !fsEl) {
+    const req = dlg.requestFullscreen || dlg.webkitRequestFullscreen;
+    try { const r = req?.call(dlg); r?.catch?.(() => {}); } catch (_) { /* not allowed: the CSS version stays */ }
+  } else if (!on && fsEl) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+  }
+}
+$("#camFull").addEventListener("click", () => setCamFull(!camFullNow()));
+$("#camImg").addEventListener("dblclick", () => setCamFull(!camFullNow()));
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) {
+  document.addEventListener(ev, () => {        // left full screen with Esc or the system gesture
+    if (!(document.fullscreenElement || document.webkitFullscreenElement) && camFullNow()) setCamFull(false);
+  });
+}
+$("#camDlg").addEventListener("cancel", (e) => {   // Esc in the window-filling version: leave full screen first
+  if (camFullNow()) { e.preventDefault(); setCamFull(false); }
+});
 $("#powerDlg").addEventListener("close", () => { state.powerDlgId = null; state.powerConfirm = null; state.powerArm = null; });
 $("#camSmooth").addEventListener("click", () => setSmooth($("#camSmooth").getAttribute("aria-pressed") !== "true"));
 $("#wallBtn").addEventListener("click", () => setWall(!wall.on));

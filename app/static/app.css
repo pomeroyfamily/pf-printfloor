@@ -347,6 +347,22 @@ body:not([data-sort="manual"]) .grip { visibility: hidden; }
 .cam-dlg { width: min(1100px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 0; border: 0; border-radius: 14px;
   background: var(--surface); color: var(--ink); }
 .cam-dlg::backdrop { background: rgb(0 0 0 / .6); }
+.cam-dlg .sheet-head { gap: 4px; }
+.cam-dlg .sheet-head > div { margin-right: auto; }
+#camFull .fs-out, .cam-dlg.full #camFull .fs-in { display: none; }
+.cam-dlg.full #camFull .fs-out { display: inline; }
+/* full screen: picture fills the screen, header floats on top */
+.cam-dlg.full { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; inset: 0;
+  border-radius: 0; background: #000; color: #fff; }
+.cam-dlg.full .sheet-head { position: absolute; inset: 0 0 auto 0; z-index: 1; padding-top: max(10px, env(safe-area-inset-top));
+  background: linear-gradient(rgb(0 0 0 / .65), transparent); border: 0; }
+.cam-dlg.full .sheet-head .muted { color: #ccc; }
+.cam-dlg.full .icon-btn { color: #fff; }
+.cam-dlg.full .cam-view { height: 100dvh; }
+.cam-dlg.full .cam-view img, .cam-dlg.full .cam-view iframe { width: 100%; height: 100dvh; max-height: none; aspect-ratio: auto; object-fit: contain; }
+.cam-dlg.full .cam-foot { position: absolute; inset: auto 0 0 0; background: linear-gradient(transparent, rgb(0 0 0 / .65));
+  padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+.cam-dlg:fullscreen::backdrop { background: #000; }
 .cam-view { background: #000; display: grid; place-items: center; min-height: 240px; }
 .cam-view img { display: block; width: 100%; height: auto; max-height: calc(100vh - 110px); object-fit: contain; }
 .cam-view p { color: #ccc; padding: 24px; text-align: center; }
@@ -642,3 +658,6 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 .printer-help a { color: var(--printing); font-weight: 600; }
 .help-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
 .help-foot a { color: var(--printing); font-weight: 600; }
+
+/* not connected to the server: what's on screen is old */
+body.stale #grid, body.stale #wallGrid { filter: grayscale(1); opacity: .5; transition: opacity .3s, filter .3s; }

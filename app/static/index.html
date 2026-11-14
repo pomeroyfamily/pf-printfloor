@@ -107,6 +107,10 @@
 <dialog class="cam-dlg" id="camDlg" aria-labelledby="camTitle">
   <div class="sheet-head">
     <div><h2 id="camTitle"></h2><p class="muted" id="camSub"></p></div>
+    <button type="button" class="icon-btn" id="camFull" aria-label="Full screen" title="Full screen (or double-click the picture)">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path class="fs-in" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path class="fs-out" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+    </button>
     <button type="button" class="icon-btn" data-close aria-label="Close camera">✕</button>
   </div>
   <div class="cam-view"><img id="camImg" alt="Live camera" hidden><iframe id="camFrame" title="Smooth camera video" hidden allow="autoplay"></iframe><p class="muted" id="camMsg">Connecting to the camera…</p></div>
