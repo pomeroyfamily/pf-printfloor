@@ -2334,7 +2334,32 @@ $("#cardDlg").addEventListener("click", (e) => {
   if (e.target.closest("[data-overlay-close]")) $("#cardDlg").close();   // Details: global handler opens it on top
 });
 $("#cardDlg").addEventListener("close", () => { state.overlayId = null; });
-$("#camDlg").addEventListener("close", closeCameraStream);
+$("#camDlg").addEventListener("close", () => { setCamFull(false); closeCameraStream(); });
+// Full screen: the real thing where the browser allows it (desktop, iPad), otherwise the popup fills the window
+// (iPhone Safari only allows full screen for <video>).
+function camFullNow() { return $("#camDlg").classList.contains("full"); }
+function setCamFull(on) {
+  const dlg = $("#camDlg");
+  dlg.classList.toggle("full", on);
+  $("#camFull").setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (on && !fsEl) {
+    const req = dlg.requestFullscreen || dlg.webkitRequestFullscreen;
+    try { const r = req?.call(dlg); r?.catch?.(() => {}); } catch (_) { /* not allowed: the CSS version stays */ }
+  } else if (!on && fsEl) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+  }
+}
+$("#camFull").addEventListener("click", () => setCamFull(!camFullNow()));
+$("#camImg").addEventListener("dblclick", () => setCamFull(!camFullNow()));
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) {
+  document.addEventListener(ev, () => {        // left full screen with Esc or the system gesture
+    if (!(document.fullscreenElement || document.webkitFullscreenElement) && camFullNow()) setCamFull(false);
+  });
+}
+$("#camDlg").addEventListener("cancel", (e) => {   // Esc in the window-filling version: leave full screen first
+  if (camFullNow()) { e.preventDefault(); setCamFull(false); }
+});
 $("#powerDlg").addEventListener("close", () => { state.powerDlgId = null; state.powerConfirm = null; state.powerArm = null; });
 $("#camSmooth").addEventListener("click", () => setSmooth($("#camSmooth").getAttribute("aria-pressed") !== "true"));
 $("#wallBtn").addEventListener("click", () => setWall(!wall.on));
