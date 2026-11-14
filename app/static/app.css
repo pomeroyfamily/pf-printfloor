@@ -642,3 +642,6 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 .printer-help a { color: var(--printing); font-weight: 600; }
 .help-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
 .help-foot a { color: var(--printing); font-weight: 600; }
+
+/* not connected to the server: what's on screen is old */
+body.stale #grid, body.stale #wallGrid { filter: grayscale(1); opacity: .5; transition: opacity .3s, filter .3s; }
