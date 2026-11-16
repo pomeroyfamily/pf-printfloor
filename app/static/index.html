@@ -124,6 +124,15 @@
   <div class="cam-foot"><button type="button" class="btn ghost" id="camSmooth" aria-pressed="false" hidden>Smooth video (home network only)</button></div>
 </dialog>
 
+<!-- Job preview, bigger (click a card's preview picture) -->
+<dialog class="cam-dlg thumb-dlg" id="thumbDlg" aria-labelledby="thumbTitle">
+  <div class="sheet-head">
+    <div><h2 id="thumbTitle"></h2><p class="muted" id="thumbSub"></p></div>
+    <button type="button" class="icon-btn" data-close aria-label="Close preview">✕</button>
+  </div>
+  <div class="thumb-view"><img id="thumbImg" alt=""></div>
+</dialog>
+
 <!-- Power (card power button) -->
 <dialog class="modal" id="powerDlg" aria-labelledby="powerTitle">
   <div class="modal-head">
