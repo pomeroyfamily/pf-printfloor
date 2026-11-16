@@ -2509,7 +2509,7 @@ $("#aboutBtn").addEventListener("click", async () => {
         <h3>${esc(a.name)}</h3>
         <p class="about-ver">Version ${esc(a.version)}</p>
         <p>A live, status-only dashboard for your 3D printers.</p>
-        <p class="about-links">${gh("", "Project page")} · ${gh("/releases", "Releases")} · ${gh("/issues", "Report a problem")}</p>
+        <p class="about-links">${gh("", "Project page")} · ${gh("/releases", "Releases")} · ${gh("/issues/new/choose", "Report a problem")}</p>
         <p class="note">${esc(a.copyright)}. ${gh("/blob/main/LICENSE", `${esc(a.license)} License`)}.
           Uses open-source software: ${gh("/blob/main/LICENSES-THIRD-PARTY.md", "licenses")}.</p>
         <p class="note">Not affiliated with or endorsed by Bambu Lab, Elegoo, Snapmaker or Govee.

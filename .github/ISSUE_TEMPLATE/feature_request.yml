@@ -1,0 +1,16 @@
+name: Suggest an idea
+description: Something the dashboard could do, or a printer or plug it could support.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like it to do?
+      description: And what would it help you with?
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Printer or plug (if it's about one)
+      placeholder: "Anycubic Kobra 3, TP-Link Kasa plug"
