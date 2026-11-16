@@ -86,6 +86,13 @@
 <main>
   <section class="grid" id="grid" aria-label="Printers"></section>
   <section class="wall" id="wall" aria-label="Camera wall" hidden>
+    <div class="wall-tools">
+      <button type="button" class="btn" id="fitBtn" title="Selected cameras fill the whole screen, for showing at events">Fit to screen</button>
+    </div>
+    <div class="fit-bar" id="fitBar" hidden>
+      <button type="button" class="btn" id="fitPick">Choose cameras</button>
+      <button type="button" class="btn" id="fitExit">Exit</button>
+    </div>
     <div class="cam-grid" id="wallGrid"></div>
     <p class="muted cam-empty" hidden>None of the printers shown has a camera the dashboard can display yet.</p>
     <p class="muted cam-none"></p>
@@ -189,6 +196,14 @@
 </dialog>
 
 <!-- Bambu account -->
+<dialog class="modal" id="fitDlg" aria-labelledby="fitTitle">
+  <div class="modal-head">
+    <h2 id="fitTitle">Cameras on the screen</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+  </div>
+  <div class="modal-body" id="fitBody"></div>
+</dialog>
+
 <dialog class="modal" id="aboutDlg" aria-labelledby="aboutTitle">
   <div class="modal-head">
     <h2 id="aboutTitle">About</h2>

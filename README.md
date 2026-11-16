@@ -43,7 +43,8 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 - **Filters**: status chips, Groups (tags, maker, model) and Locations, combined.
 - **Locations**: name places (e.g. "Garage", "Second Shop"), filter by them, group the grid into sections.
 - **Dashboard name** shown as a banner (can be hidden).
-- **Cameras**: per-card camera button and a camera wall; external camera URL per printer.
+- **Cameras**: per-card camera button, full-screen camera, a camera wall, and a **Fit to screen** show mode;
+  external camera URL per printer.
 - **Smart plugs (Govee)**: on/off per printer, emergency stop with typed confirmation, optional automatic
   daily power cycle.
 - **Uptime / last reboot** on the card where the printer allows it (see [notes](#uptime-and-reboot-detection)).
@@ -222,6 +223,11 @@ Everything else is configured in the app (gear menu):
   sections (click a section header to fold it). Dragging cards works within a section; move a printer to another
   location in Details.
 - **Cameras** button: camera wall; it follows the current filters and grouping.
+  - **Fit to screen** (on the wall): the cameras you choose fill the whole screen in the best rows and columns for
+    their count, with name and progress on each, for a TV at a show. **Choose cameras** picks them (remembered
+    per browser). The buttons and mouse pointer hide after 3 seconds; move the mouse or tap to bring them back.
+    Esc (twice if the browser is in full screen) or **Exit** leaves it.
+- **Camera popup**: the full-screen button (or double-click the picture) fills the screen with one camera.
 - **Power button** on a card (only when a plug is assigned): green = on, red = off, yellow = plug not online.
 
 Filters, sort, view and grouping are remembered **per browser**. The dashboard name, locations, printers and

@@ -1416,13 +1416,15 @@ var wall = { on: false, loops: new Map() };   // var: renderSummary may run befo
 function camPrinters() { return sortedPrinters().filter((p) => shown(p)); }
 function renderWall() {
   const box = $("#wall");
-  const ps = camPrinters();
-  const withCam = ps.filter((p) => p.camera?.kind), without = ps.filter((p) => !p.camera?.kind);
+  const ps = wall.fit ? sortedPrinters() : camPrinters();
+  let withCam = ps.filter((p) => p.camera?.kind);
+  const without = ps.filter((p) => !p.camera?.kind);
+  if (wall.fit) withCam = withCam.filter((p) => fitChosen(p.id));
   const ids = withCam.map((p) => p.id);
   for (const el of [...box.querySelectorAll(".cam-tile")]) if (!ids.includes(el.dataset.id)) stopTile(el.dataset.id);
   const grid = $("#wallGrid");
   const nodes = [];
-  for (const [l, list] of sections(withCam)) {
+  for (const [l, list] of (wall.fit ? [[null, withCam]] : sections(withCam))) {
     if (l) nodes.push(locHeadEl(grid, l));
     for (const p of list) {
       let el = grid.querySelector(`:scope > [data-id="${CSS.escape(p.id)}"]`);
@@ -1438,7 +1440,7 @@ function renderWall() {
   updateHeads(grid);
   withCam.forEach((p) => {
     const el = grid.querySelector(`:scope > [data-id="${CSS.escape(p.id)}"]`);
-    if (folded(p)) { el.hidden = true; stopTile(p.id); return; }       // folded section: no frames pulled
+    if (!wall.fit && folded(p)) { el.hidden = true; stopTile(p.id); return; }   // folded section: no frames pulled
     el.hidden = false;
     const st = p.status || {}, job = st.job || {};
     const live = ACTIVE.has(st.state);
@@ -1449,6 +1451,71 @@ function renderWall() {
   });
   box.querySelector(".cam-none").innerHTML = without.length ? `No camera yet: ${without.map((p) => esc(p.name)).join(", ")}. Add an external camera in a printer's Details.` : "";
   box.querySelector(".cam-empty").hidden = withCam.length > 0;
+  if (wall.fit) fitLayout();
+}
+
+// ---------------------------------------------------------------- fit to screen (show mode)
+// The chosen cameras fill the whole screen in the best rows x columns for their count (2x5, 3x4, ...). For a TV or
+// monitor at a show. The choice is remembered in this browser.
+const FIT_KEY = "pf-fit-cams";
+function fitSaved() { try { return JSON.parse(localStorage.getItem(FIT_KEY) || "null"); } catch (_) { return null; } }
+function fitChosen(id) { const s = fitSaved(); return !s || s.includes(id); }     // nothing chosen yet: all cameras
+function fitLayout() {
+  const grid = $("#wallGrid");
+  const tiles = [...grid.querySelectorAll(":scope > .cam-tile:not([hidden])")];
+  const n = tiles.length;
+  if (!n) return;
+  const W = window.innerWidth, H = window.innerHeight, gap = 4, ar = 16 / 9;
+  let best = { w: 0, cols: 1, rows: n };
+  for (let cols = 1; cols <= n; cols++) {
+    const rows = Math.ceil(n / cols);
+    const w = Math.min((W - gap * (cols - 1)) / cols, ((H - gap * (rows - 1)) / rows) * ar);
+    if (w > best.w + 0.5) best = { w, cols, rows };
+  }
+  const w = Math.floor(best.w), h = Math.floor(best.w / ar);
+  grid.style.gridTemplateColumns = `repeat(${best.cols}, ${w}px)`;
+  grid.style.gridAutoRows = `${h}px`;
+  grid.dataset.cols = best.cols;
+}
+function setFit(on) {
+  wall.fit = on;
+  document.body.classList.toggle("fit", on);
+  $("#fitBar").hidden = !on;
+  const grid = $("#wallGrid");
+  if (!on) { grid.style.gridTemplateColumns = ""; grid.style.gridAutoRows = ""; }
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (on && !fsEl) {
+    const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+    try { req?.call(el)?.catch?.(() => {}); } catch (_) { /* fills the window instead */ }
+  } else if (!on && fsEl && !$("#camDlg").open) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+  }
+  stopWall();
+  renderWall();
+  fitBarPeek();
+}
+let fitBarTimer = 0;
+function fitBarPeek() {                       // controls show on mouse move / tap, then hide so only cameras remain
+  if (!wall.fit) return;
+  $("#fitBar").classList.add("show"); document.body.classList.remove("fit-idle");
+  clearTimeout(fitBarTimer);
+  fitBarTimer = setTimeout(() => { $("#fitBar").classList.remove("show"); document.body.classList.add("fit-idle"); }, 3000);
+}
+function renderFitDlg() {
+  const cams = sortedPrinters().filter((p) => p.camera?.kind);
+  const n = cams.filter((p) => fitChosen(p.id)).length;
+  $("#fitBody").innerHTML = cams.length ? `
+    <p class="note">Pick the cameras for the screen. They fill it in the best rows and columns for how many you pick.
+      Remembered in this browser.</p>
+    <div class="fit-pick">${cams.map((p) => `<label class="check"><input type="checkbox" data-fit-id="${esc(p.id)}"${fitChosen(p.id) ? " checked" : ""}> ${esc(p.name)}</label>`).join("")}</div>
+    <p class="fit-actions"><button type="button" class="link-btn" data-fit-all>All</button> · <button type="button" class="link-btn" data-fit-none>None</button>
+      <span class="muted">${n} of ${cams.length} chosen</span></p>`
+    : `<p class="note">No printer has a camera the dashboard can show yet.</p>`;
+}
+function saveFitChoice(ids) {
+  try { localStorage.setItem(FIT_KEY, JSON.stringify(ids)); } catch (_) { /* private mode: lasts until reload */ }
+  renderFitDlg();
+  if (wall.fit) { stopWall(); renderWall(); }
 }
 function startTile(id) {
   const loop = { seq: 0, stop: false, url: null };
@@ -1489,7 +1556,7 @@ function setWall(on) {
   $("#wall").hidden = !on;
   $("#grid").hidden = on;
   $("#wallBtn").setAttribute("aria-pressed", String(on));
-  if (on) { renderWall(); } else stopWall();
+  if (on) { renderWall(); } else { if (wall.fit) setFit(false); stopWall(); }
 }
 document.addEventListener("visibilitychange", () => {          // background tab: stop pulling camera frames
   if (!wall.on) return;
@@ -2363,8 +2430,30 @@ $("#camDlg").addEventListener("cancel", (e) => {   // Esc in the window-filling 
 $("#powerDlg").addEventListener("close", () => { state.powerDlgId = null; state.powerConfirm = null; state.powerArm = null; });
 $("#camSmooth").addEventListener("click", () => setSmooth($("#camSmooth").getAttribute("aria-pressed") !== "true"));
 $("#wallBtn").addEventListener("click", () => setWall(!wall.on));
+$("#fitBtn").addEventListener("click", () => setFit(true));
+$("#fitExit").addEventListener("click", () => setFit(false));
+$("#fitPick").addEventListener("click", () => { renderFitDlg(); $("#fitDlg").showModal(); });
+$("#fitBody").addEventListener("change", () => {
+  saveFitChoice([...$("#fitBody").querySelectorAll("[data-fit-id]:checked")].map((x) => x.dataset.fitId));
+});
+$("#fitBody").addEventListener("click", (e) => {
+  const cams = sortedPrinters().filter((p) => p.camera?.kind).map((p) => p.id);
+  if (e.target.closest("[data-fit-all]")) saveFitChoice(cams);
+  if (e.target.closest("[data-fit-none]")) saveFitChoice([]);
+});
+addEventListener("resize", () => { if (wall.fit) fitLayout(); });
+for (const ev of ["mousemove", "touchstart", "keydown"]) document.addEventListener(ev, fitBarPeek, { passive: true });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && wall.fit && !document.querySelector("dialog[open]")) setFit(false);
+});
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) {
+  document.addEventListener(ev, () => { if (wall.fit) setTimeout(fitLayout, 50); });
+}
 $("#dashBtn").addEventListener("click", () => setWall(false));
-$("#wall").addEventListener("click", (e) => { const t = e.target.closest("[data-cam-open]"); if (t) openCamera(t.closest(".cam-tile").dataset.id); });
+$("#wall").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-cam-open]");
+  if (t && !wall.fit) openCamera(t.closest(".cam-tile").dataset.id);   // show screen: taps don't open popups
+});
 // Appearance: Auto (follows the system), Light or Dark. Remembered in this browser; applied early in <head>.
 function applyTheme(t) {
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
