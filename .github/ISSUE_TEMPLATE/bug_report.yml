@@ -1,0 +1,53 @@
+name: Report a problem
+description: Something on the dashboard isn't working or shows the wrong thing.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Don't paste access codes, API keys, passwords, email addresses or your IP addresses** —
+        replace them with `xxx`. Screenshots are welcome; crop or blur those details too.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → About on the dashboard.
+      placeholder: "0.1.7"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run it?
+      options:
+        - Docker / Docker Compose
+        - TrueNAS / Unraid / other NAS app
+        - Command line (python -m app)
+    validations:
+      required: true
+  - type: input
+    id: printers
+    attributes:
+      label: Printer(s) involved
+      description: Make and model, and firmware version if you know it.
+      placeholder: "Bambu Lab P1P (01.07.00.00), Elegoo Centauri Carbon"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines (optional)
+      description: |
+        The last lines from the app around when it happened. Docker: `docker logs --tail 100 <container name>`.
+        Remove access codes, keys and IP addresses first.
+      render: text
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device (optional)
+      placeholder: "Chrome on Windows, Safari on iPad"
