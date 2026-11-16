@@ -182,7 +182,7 @@ function ringEl(st, color) {
 function thumbEl(p, big = false) {
   const url = p.status?.job?.thumbnail_url;
   const cls = big ? "thumb big-thumb" : "thumb";
-  if (url) return `<div class="${cls}"><img src="${esc(url)}" alt="Preview of ${esc(p.status.job.name || "the current job")}" loading="lazy"></div>`;
+  if (url) return `<div class="${cls}"><button type="button" class="thumb-open" data-thumb-open="${esc(p.id)}" aria-label="Show preview bigger" title="Show bigger"><img src="${esc(url)}" alt="Preview of ${esc(p.status.job.name || "the current job")}" loading="lazy"></button></div>`;
   const hasJob = p.status?.job?.name && ACTIVE.has(p.status?.state);
   return `<div class="${cls}">${hasJob ? `<span>Preview<br>not available yet</span>` : PLATE_SVG}</div>`;
 }
@@ -377,7 +377,7 @@ function rowHTML(p) {
   const units = st?.filament || [];
   const spools = units.map((u) => `<span class="spool-group" title="${esc(u.kind)}">${u.slots.map(spoolEl).join("")}</span>`).join("");
   const url = job.thumbnail_url;
-  const thumb = url ? `<img src="${esc(url)}" alt="" loading="lazy">` : PLATE_SVG;
+  const thumb = url ? `<button type="button" class="thumb-open" data-thumb-open="${esc(p.id)}" aria-label="Show preview bigger" title="Show bigger"><img src="${esc(url)}" alt="" loading="lazy"></button>` : PLATE_SVG;
   const ph = `<span class="icon-ph" aria-hidden="true"></span>`;
   return `
     <div class="lc lc-grip">${GRIP}</div>
@@ -1367,6 +1367,22 @@ function setupPlugsDlg() {
 // ---------------------------------------------------------------- cameras
 // Popup: one live MJPEG stream from the server. Wall: each tile asks for the next frame (short requests, so many
 // tiles don't run into the browser's ~6-connections-per-site limit). Nothing streams unless one of these is open.
+// Job preview, bigger: same kind of popup as the camera
+function openThumb(id) {
+  const p = state.printers.find((x) => x.id === id);
+  const url = p?.status?.job?.thumbnail_url;
+  if (!url) return;
+  $("#thumbTitle").textContent = p.name;
+  $("#thumbSub").textContent = p.status.job.name || "Current job";
+  $("#thumbImg").src = url;
+  $("#thumbImg").alt = `Preview of ${p.status.job.name || "the current job"}`;
+  $("#thumbDlg").showModal();
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-thumb-open]");
+  if (b) { e.stopPropagation(); openThumb(b.dataset.thumbOpen); }
+}, true);
+
 function openCamera(id) {
   const p = state.printers.find((x) => x.id === id);
   if (!p) return;
