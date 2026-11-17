@@ -257,14 +257,16 @@ def stream_zip_members(ftp: ftplib.FTP, path: str, keep: Callable[[str], bool], 
         while True:
             if not buf and not more():
                 raise StreamNotPossible("file ended inside an entry")
-            data = d.decompress(bytes(buf))
-            if out is not None:
-                out += data
-                if len(out) > max_keep_bytes:
-                    out = None
+            pending = bytes(buf)
+            while pending and not d.eof:                    # at most 1 MB out per step: a zip bomb can't balloon
+                data = d.decompress(pending, 1 << 20)
+                pending = d.unconsumed_tail
+                if out is not None:
+                    out += data
+                    if len(out) > max_keep_bytes:
+                        out = None
             if d.eof:
-                rest = d.unused_data
-                buf[:] = rest
+                buf[:] = d.unused_data
                 return bytes(out) if out is not None else None
             buf.clear()
 

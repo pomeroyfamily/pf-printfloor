@@ -113,6 +113,7 @@ def test_external_url_overrides_and_x1c_has_none(client):
         r = client.patch(f"/api/printers/{x1c}", json={"camera_url": f"http://admin:secret@127.0.0.1:{http.port}/mjpeg"})
         cam = r.json()["camera"]
         assert cam["kind"] == "external" and "secret" not in cam["url"] and "***" in cam["url"]
+        assert ":secret@" not in r.text and ":secret@" not in client.get("/api/printers").text   # not in settings either
         # sending the masked URL back (e.g. saving the form unchanged) keeps the real one
         client.patch(f"/api/printers/{x1c}", json={"camera_url": cam["url"], "camera_kind": "auto"})
         assert client.app.state.mgr.store.get(x1c).settings["camera_url"].endswith("secret@127.0.0.1:%d/mjpeg" % http.port)

@@ -132,7 +132,9 @@ def test_tag_edit_keeps_other_settings_and_does_not_reconnect(client, monkeypatc
     monkeypatch.setattr(Manager, "_restart", lambda self, cfg: restarts.append(cfg.id) or _noop())
     r = client.patch(f"/api/printers/{p['id']}", json={"tags": ["x"], "host": BAMBU["host"]}).json()
     assert r["tags"] == ["x"] and r["settings"].get("auto_name") is True and not restarts
-    client.patch(f"/api/printers/{p['id']}", json={"host": "10.0.0.200"})
+    assert client.patch(f"/api/printers/{p['id']}", json={"host": "10.0.0.200"}).status_code == 400   # code again
+    assert not restarts
+    client.patch(f"/api/printers/{p['id']}", json={"host": "10.0.0.200", "secrets": {"access_code": "aaaa1111"}})
     assert restarts == [p["id"]]
 
 

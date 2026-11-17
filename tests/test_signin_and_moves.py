@@ -70,17 +70,22 @@ def moves(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "THUMB_DIR", tmp_path / "thumbs")
     monkeypatch.setattr(Manager, "_start", lambda self, cfg: None)
     bc.set_account(None)
-    probe = {"old_answers": False, "cn": SERIAL}
+    probe = {"old_answers": False, "cn": SERIAL, "der": b"printer-cert"}
     monkeypatch.setattr(manager_mod, "_answers", lambda host, port: probe["old_answers"])
-    monkeypatch.setattr(manager_mod, "peer_common_name", lambda host, port: probe["cn"])
+    monkeypatch.setattr(manager_mod, "peer_cert", lambda host, port: probe["der"])
+    monkeypatch.setattr(manager_mod, "common_name", lambda der: probe["cn"])
     port = free_udp_port()
     with TestClient(create_app(tmp_path / "db.sqlite", start_drivers=False, ssdp_ports=(port,))) as c:
         yield c, port, probe
 
 
-def _add(c, host="10.0.0.147"):
-    return c.post("/api/printers", json={"name": "P1-1", "driver": "bambu.p1p", "host": host, "serial": SERIAL,
-                                         "secrets": {"access_code": "12345678"}}).json()["id"]
+def _add(c, host="10.0.0.147", pin=True):
+    pid = c.post("/api/printers", json={"name": "P1-1", "driver": "bambu.p1p", "host": host, "serial": SERIAL,
+                                        "secrets": {"access_code": "12345678"}}).json()["id"]
+    if pin:                        # what _pin_cert remembers while the printer is connected at its old address
+        st = c.app.state.mgr.store
+        st.update(pid, settings={**st.get(pid).settings, "cert_sha256": manager_mod.cert_fingerprint(b"printer-cert")})
+    return pid
 
 
 def _host_after(c, pid, wait=1.5):
@@ -100,19 +105,24 @@ def test_moved_printer_is_followed(moves):
     p = _host_after(c, pid)
     assert p["host"] == "127.0.0.1"
     assert p["settings"]["address_changed"]["from"] == "10.0.0.147"
-    c.patch(f"/api/printers/{pid}", json={"host": "10.0.0.5"})     # typed by hand: the note goes away
+    r = c.patch(f"/api/printers/{pid}", json={"host": "10.0.0.5"})  # by hand: the access code must be typed again
+    assert r.status_code == 400 and "access code" in r.json()["detail"]
+    c.patch(f"/api/printers/{pid}", json={"host": "10.0.0.5", "secrets": {"access_code": "12345678"}})
     p = next(p for p in c.get("/api/printers").json() if p["id"] == pid)
-    assert "address_changed" not in p["settings"]
+    assert "address_changed" not in p["settings"] and "cert_sha256" not in p["settings"]   # re-remembered later
 
 
-@pytest.mark.parametrize("case", ["old_still_answers", "wrong_certificate", "claims_other_address", "dns_name"])
+@pytest.mark.parametrize("case", ["old_still_answers", "wrong_certificate", "claims_other_address", "dns_name",
+                                  "same_serial_other_certificate", "certificate_never_seen"])
 def test_not_followed_when_unsafe(moves, case):
     c, port, probe = moves
-    pid = _add(c, host="p1.local" if case == "dns_name" else "10.0.0.147")
+    pid = _add(c, host="p1.local" if case == "dns_name" else "10.0.0.147", pin=case != "certificate_never_seen")
     if case == "old_still_answers":
         probe["old_answers"] = True
     if case == "wrong_certificate":
         probe["cn"] = "SOMETHINGELSE"
+    if case == "same_serial_other_certificate":      # a fake printer with a self-made certificate naming the serial
+        probe["der"] = b"attacker-cert"
     ip = "10.0.0.77" if case == "claims_other_address" else "127.0.0.1"   # packet comes from 127.0.0.1
     announce(port, name="P1-1", ip=ip, serial=SERIAL)
     time.sleep(0.6)

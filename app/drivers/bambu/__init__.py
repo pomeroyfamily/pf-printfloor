@@ -20,7 +20,7 @@ from ...errors import AuthFailed, DriverError, PrinterUnreachable
 from ...cloud import bambu as bambu_cloud
 from ...models import ConnState, JobState
 from ...transports.mqtt import MqttConnection
-from ...transports.tls import peer_common_name
+from ...transports.tls import cert_fingerprint, common_name, peer_cert, peer_common_name
 from ..base import FieldSpec, PrinterBase
 from ..registry import register
 from . import parse, thumbnails
@@ -141,6 +141,15 @@ class BambuPrinter(PrinterBase):
         if now - getattr(self, "_code_checked_at", -1e9) < 300:     # ask the account at most every 5 minutes
             return None
         self._code_checked_at = now
+        # Only hand the account's code to the printer this really is: the certificate it showed while it worked
+        # at this address. Otherwise anyone could change the address to their own machine, answer "wrong code",
+        # and receive the real one (security review 2026-11-17). Not remembered yet: the code has to be typed.
+        pinned = self.setting("cert_sha256")
+        der = peer_cert(self.config.host, int(self.setting("mqtt_port", self.mqtt_port)))
+        if not pinned or cert_fingerprint(der) != pinned or common_name(der or b"") != self._serial:
+            log.info("printer %s: not using the Bambu account's access code - this address isn't confirmed as the "
+                     "printer; enter the code in Details", self.config.id)
+            return None
         dev = acct.device(self._serial, fresh=True)
         code = str((dev or {}).get("dev_access_code") or "").strip()
         return code if code and code != rejected else None

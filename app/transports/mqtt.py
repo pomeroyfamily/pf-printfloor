@@ -17,6 +17,8 @@ from ..errors import AuthFailed, DriverError, PrinterUnreachable
 from .tls import insecure_context
 
 _CLOSED = object()
+QUEUE_MAX = 500
+MSG_MAX = 4 * 1024 * 1024          # a full Bambu report is ~10-60 KB
 
 
 class MqttConnection:
@@ -25,7 +27,7 @@ class MqttConnection:
                  ssl_context: Optional[ssl.SSLContext] = None):
         self.host, self.port = host, port
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._queue: asyncio.Queue = asyncio.Queue()
+        self._queue: asyncio.Queue = asyncio.Queue(maxsize=QUEUE_MAX)
         self._connack: Optional[asyncio.Future] = None
         self._keepalive = keepalive
         self._client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
@@ -44,13 +46,23 @@ class MqttConnection:
         if self._loop and self._connack and not self._connack.done():
             self._loop.call_soon_threadsafe(self._connack.set_result, reason_code)
 
+    def _put(self, item) -> None:
+        """On the event loop. A printer flooding messages faster than they're handled drops the oldest ones
+        (status reports supersede each other) instead of growing memory without limit."""
+        while self._queue.full():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        self._queue.put_nowait(item)
+
     def _on_message(self, client, userdata, msg):
-        if self._loop:
-            self._loop.call_soon_threadsafe(self._queue.put_nowait, (msg.topic, msg.payload))
+        if self._loop and len(msg.payload) <= MSG_MAX:
+            self._loop.call_soon_threadsafe(self._put, (msg.topic, msg.payload))
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties=None):
         if self._loop:
-            self._loop.call_soon_threadsafe(self._queue.put_nowait, _CLOSED)
+            self._loop.call_soon_threadsafe(self._put, _CLOSED)
 
     # ---- API ----
     async def connect(self, timeout: float = 15) -> None:

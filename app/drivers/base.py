@@ -152,7 +152,10 @@ class PrinterBase(ABC):
 
     async def _run(self) -> None:
         self.status.connection, self.status.connection_detail = ConnState.CONNECTING, None
-        await self._publish()  # always announce the card, even before the first connect
+        try:
+            await self._publish()  # always announce the card, even before the first connect
+        except Exception:  # noqa: BLE001 - a failing listener must not stop this printer's loop for good
+            log.exception("%s: first status update failed", self.config.id)
         while not self._stopping.is_set():
             try:
                 if self.mode == "poll":

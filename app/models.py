@@ -6,11 +6,12 @@ with an empty value (decision O1).
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ConnState(str, Enum):
@@ -62,6 +63,23 @@ class FilamentSlot(BaseModel):
     extra_colors: list[str] = Field(default_factory=list)  # multi-color spools
     remaining_pct: Optional[int] = None  # only when the printer really knows it
     rfid: Optional[bool] = None
+
+    @field_validator("color_hex", mode="after")
+    @classmethod
+    def _check_color(cls, v):           # printer-supplied, and it ends up in the page's CSS: "#RRGGBB" only
+        return _color_or_none(v)
+
+    @field_validator("extra_colors", mode="after")
+    @classmethod
+    def _check_colors(cls, v):
+        return [c for c in v if _color_or_none(c)]
+
+
+_HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
+
+
+def _color_or_none(v: Optional[str]) -> Optional[str]:
+    return v if isinstance(v, str) and _HEX_COLOR.fullmatch(v) else None
 
 
 class FilamentUnit(BaseModel):

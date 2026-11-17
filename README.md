@@ -203,6 +203,7 @@ Environment variables:
 | `PRINTER_DASH_PORT` | `8765` | Port the web server listens on. |
 | `PRINTER_DASH_HOST` | `0.0.0.0` | Address to listen on. |
 | `PRINTER_DASH_LOG` | `INFO` | Log level. |
+| `PRINTER_DASH_ALLOWED_HOSTS` | *(empty)* | Extra names the dashboard answers to, comma-separated, e.g. `printfloor.example.com` or `*.example.com`. **Needed when you reach it by a public domain name** (Cloudflare Tunnel, reverse proxy). IP addresses, `localhost`, single-word names (`truenas`) and `.local` / `.lan` / `.home.arpa` / `.internal` names always work. See [Remote access and security](#remote-access-and-security). |
 | `TZ` | `UTC` | Time zone; used for the automatic power cycle if none is set in the app. |
 
 Everything else is configured in the app (gear menu):
@@ -262,10 +263,21 @@ reach the page can use it.
   in front works well: create a self-hosted Access application for the hostname with an *Allow* policy listing
   specific email addresses, and turn on **Protect with Access** (JWT validation) on the tunnel's published
   application. Press Enter after pasting the AUD tag; the field takes a list.
+- **Reached by a domain name** (e.g. `printfloor.example.com` through a tunnel or proxy): add that name to
+  `PRINTER_DASH_ALLOWED_HOSTS`. Otherwise the dashboard answers "doesn't answer to the name …". This blocks
+  *DNS rebinding*, where a web page you visit points its own domain at the dashboard's address to control it.
 - The U1 "Smooth video" button connects directly to the printer and only works on the home network.
 
-Secrets (Bambu access codes, the Bambu account token, the Govee API key) are stored in the data folder and are
-never sent to the browser.
+What the dashboard does to protect itself:
+- **Secrets stay on the server:** Bambu access codes, the Bambu account token, the Govee API key, notification
+  addresses and passwords or tokens in camera URLs are stored in the data folder and never sent to the browser.
+- **Secrets only go where they were entered:** changing a printer's address requires typing its access code / API
+  key again. A Bambu printer that announces a new address is only followed automatically if it presents the same
+  certificate it had before.
+- **Other websites can't use it through your browser:** changes coming from another site are refused, the page
+  can't be shown inside another site, and a content security policy limits what the page may load.
+- **Printer data is treated as untrusted:** colours, names and messages from printers are checked or escaped, and
+  message and file sizes are capped.
 
 ## Behavior notes and known limitations
 

@@ -31,6 +31,9 @@ log = logging.getLogger(__name__)
 EVENTS = ("finished", "paused", "failed", "offline", "started")
 DEFAULTS = {"finished": True, "paused": True, "failed": True, "offline": True, "started": False}
 ACTIVE = {JobState.PRINTING, JobState.PREPARING, JobState.PAUSED}
+IDLE_STATES = {JobState.IDLE.value, JobState.FINISHED.value, JobState.UNKNOWN.value}
+GONE = {ConnState.OFFLINE, ConnState.ERROR}
+IDLE_ERROR_COOLDOWN_S = 30 * 60
 OFFLINE_GRACE_S = 120          # a printer that drops for a moment (Wi-Fi blip, reconnect) isn't worth an alert
 TICK_S = 15
 MAX_PER_MIN = 30               # safety valve against a misbehaving printer flooding everyone
@@ -83,17 +86,21 @@ def check_url(url: str) -> Optional[str]:
 
 
 def label_of(url: str) -> str:
-    """What the UI shows for a saved address: the service and the last few characters, never the token."""
+    """What the UI shows for a saved address: the service, plus the server for self-hosted ones. Never any part of
+    a token, topic, key or password (for ntfy the topic name IS the secret)."""
     name = scheme_of(url)
     try:
         import apprise
         obj = apprise.Apprise.instantiate(url)
         if obj is not None:
             name = getattr(obj, "service_name", None) or name
+            host = getattr(obj, "host", None)
+            if host and getattr(obj, "mode", None) != "cloud" and "." in str(host) \
+                    and scheme_of(url) not in ("tgram", "discord", "pover", "mailto", "mailtos"):
+                return f"{name} ({host})"
     except Exception:  # noqa: BLE001
         pass
-    tail = url.rstrip("/")[-4:]
-    return f"{name} (…{tail})" if len(url) > 12 else str(name)
+    return str(name)
 
 
 def effective(cfg: dict, person: dict, printer_id: str, event: str) -> bool:
@@ -121,6 +128,8 @@ class Notifier:
         self.dashboard_name = dashboard_name
         self._seen: dict[str, dict] = dict(store.get_app_setting(SEEN_KEY) or {})
         self._offline_since: dict[str, float] = {}
+        self._online: set[str] = set()                   # printers seen online since the dashboard started
+        self._idle_error_at: dict[str, float] = {}
         self._queue: Optional[asyncio.Queue] = None
         self._tasks: list[asyncio.Task] = []
         self._sent_at: deque[float] = deque()
@@ -153,7 +162,7 @@ class Notifier:
 
     def set_defaults(self, defaults: dict) -> None:
         c = self.config()
-        c["defaults"] = {e: bool(defaults[e]) for e in EVENTS if e in defaults}
+        c["defaults"] = {**c["defaults"], **{e: bool(defaults[e]) for e in EVENTS if e in defaults}}
         self._save(c)
 
     def save_person(self, pid: Optional[str], name: str, urls: list[dict], all_: dict,
@@ -218,6 +227,7 @@ class Notifier:
         pid = st.printer_id
         rec = self._seen.get(pid)
         if st.connection == ConnState.ONLINE:
+            self._online.add(pid)
             self._offline_since.pop(pid, None)
             if st.state == JobState.UNKNOWN:
                 return                                   # in-between report: not a change
@@ -233,11 +243,18 @@ class Notifier:
                 return
             if st.state == JobState.PAUSED:
                 self.emit(pid, "paused", job=st.job.name or st.job.file_name, reason=st.reason)
-            elif st.state == JobState.ERROR and was not in {s.value for s in ACTIVE}:
-                # an error during a job is reported once, as the job's end ("failed"); this is an idle printer
-                self.emit(pid, "failed", reason=st.reason or "printer error")
+            elif st.state == JobState.ERROR and was in IDLE_STATES:
+                # An error during a job is reported once, as the job's end ("failed"). This is a printer that was
+                # idle; one alert per IDLE_ERROR_COOLDOWN_S so an error that comes and goes can't spam.
+                last = self._idle_error_at.get(pid)
+                if last is None or time.monotonic() - last >= IDLE_ERROR_COOLDOWN_S:
+                    self._idle_error_at[pid] = time.monotonic()
+                    self.emit(pid, "failed", reason=st.reason or "printer error")
             self._remember(pid, **{**rec, "state": st.state.value, "offline_sent": False})
-        elif rec and rec.get("state") in {s.value for s in ACTIVE} and not rec.get("offline_sent"):
+        elif (st.connection in GONE and pid in self._online and rec and not rec.get("offline_sent")
+              and rec.get("state") in {s.value for s in ACTIVE}):
+            # Only a printer this dashboard saw printing and then lost. Not "busy" (Elegoo slots full), not a wrong
+            # access code, and not one that was printing when the dashboard stopped and is off now.
             self._offline_since.setdefault(pid, time.monotonic())
 
     def check_offline(self) -> None:

@@ -10,6 +10,8 @@ from typing import Optional
 
 from ..errors import PrinterBusy, PrinterUnreachable
 
+MAX_MESSAGE = 16 * 1024 * 1024        # largest message accepted from a printer (SDCP status is a few KB)
+
 
 class WebSocket:
     def __init__(self, host: str, port: int, path: str = "/websocket", timeout: float = 6):
@@ -84,6 +86,8 @@ class WebSocket:
             elif n == 127:
                 n = struct.unpack("!Q", self._recv_exact(8))[0]
             mask = self._recv_exact(4) if b2 & 0x80 else None
+            if n + sum(map(len, parts)) > MAX_MESSAGE:      # untrusted peer: don't allocate whatever it claims
+                raise ConnectionError(f"websocket message too large ({n} bytes)")
             data = self._recv_exact(n)
             if mask:
                 data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))

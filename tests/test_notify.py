@@ -136,8 +136,9 @@ def test_address_checks_and_masking():
     assert N.check_url("") and N.check_url("http://example.com/x") and N.check_url("file:///etc/passwd")
     assert N.check_url("ntfy://") is not None                           # incomplete
     assert N.check_url(NTFY) is None and N.check_url("tgram://123456:ABCdef/987654") is None
-    lbl = N.label_of(NTFY)
-    assert "8f3k2q9" not in lbl and lbl.endswith("…q9xa1)".replace("q9xa1", "9xa1"))
+    assert N.label_of(NTFY) == "ntfy"                                   # no part of the topic (it's the secret)
+    assert N.label_of("ntfys://tk_secret@ntfy.example.com/topic") == "ntfy (ntfy.example.com)"
+    assert N.label_of("tgram://123456:ABCdef/987654") == "Telegram"
 
 
 def test_save_rules():
@@ -209,3 +210,51 @@ def test_manager_wiring_job_and_pause_reach_people(tmp_path):
                                             ("finished", "X1C: Finished")]
     asyncio.run(m.remove(cfg.id))                     # removing the printer forgets its state
     assert cfg.id not in (store.get_app_setting(N.SEEN_KEY) or {})
+
+
+def test_audit_fixes_no_double_failed_busy_restart_cooldown_defaults(monkeypatch):
+    clock = [5000.0]
+    monkeypatch.setattr(N.time, "monotonic", lambda: clock[0])
+    n = notifier()
+    people(n)
+    # a job that ends FAILED and then reports ERROR: one "failed" (from the job end), not two
+    n.observe(st("x1c", JobState.PRINTING))
+    n.observe(st("x1c", JobState.FAILED))
+    n.on_job_event({"type": "job_ended", "printer_id": "x1c", "result": "failed", "job": "Gear"})
+    n.observe(st("x1c", JobState.ERROR))
+    assert [e for e, *_ in n.sent] == ["failed"]
+    # Elegoo "busy" (slicer holds the slots) or a wrong access code mid-print isn't "offline"
+    n.observe(st("x1c", JobState.PRINTING))
+    for c in (ConnState.BUSY, ConnState.AUTH_ERROR, ConnState.CONNECTING):
+        n.observe(st("x1c", JobState.UNKNOWN, conn=c))
+        clock[0] += N.OFFLINE_GRACE_S + 1
+        n.check_offline()
+    assert [e for e, *_ in n.sent] == ["failed"]
+    # idle error that comes and goes: one alert per cooldown
+    n.observe(st("x1c", JobState.IDLE))
+    for _ in range(5):
+        n.observe(st("x1c", JobState.ERROR))
+        n.observe(st("x1c", JobState.IDLE))
+    assert [e for e, *_ in n.sent] == ["failed", "failed"]
+    clock[0] += N.IDLE_ERROR_COOLDOWN_S
+    n.observe(st("x1c", JobState.ERROR))
+    assert len(n.sent) == 3
+    # partial defaults update keeps the others
+    n.set_defaults({"started": True})
+    n.set_defaults({"finished": False})
+    d = n.view()["defaults"]
+    assert d["started"] is True and d["finished"] is False and d["paused"] is True
+
+
+def test_restart_with_printer_off_is_not_offline_alert(monkeypatch):
+    store = Store()
+    n = notifier(store)
+    people(n)
+    n.observe(st("x1c", JobState.PRINTING))              # printing when the dashboard stopped
+    n2 = notifier(store)                                   # restarted; the printer is off now
+    clock = [100.0]
+    monkeypatch.setattr(N.time, "monotonic", lambda: clock[0])
+    n2.observe(st("x1c", JobState.UNKNOWN, conn=ConnState.OFFLINE))
+    clock[0] += N.OFFLINE_GRACE_S + 1
+    n2.check_offline()
+    assert n2.sent == []

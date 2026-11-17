@@ -5,6 +5,8 @@ import asyncio
 
 import pytest
 
+from app.transports.tls import cert_fingerprint, peer_cert
+
 from app import config
 from app.cloud import bambu as bambu_cloud
 from app.drivers import get_driver
@@ -202,13 +204,32 @@ def test_new_access_code_taken_from_the_account(tmp_path, cloud):
         async with FakeBambu(tmp_path / "c", fixture(FX), user="u_42", code=cloud.token, ftps=False) as broker, \
                 FakeBambu(tmp_path / "l", fixture(FX), code="87654321", ftps=False) as lan:
             link(cloud, broker)
-            d, seen = await drive(0, lan.mqtt_port, connection="local")          # saved code: 12345678 (old)
+            pin = cert_fingerprint(await asyncio.to_thread(peer_cert, "127.0.0.1", lan.mqtt_port))
+            d, seen = await drive(0, lan.mqtt_port, connection="local", cert_sha256=pin)   # saved code: 12345678 (old)
             await run_until(d, seen, lambda s: "local" in online_links(s))
             return d, seen
     d, seen = asyncio.run(go())
     online = [s for s in seen if s.connection == ConnState.ONLINE]
     assert online and online[-1].link == "local"
     assert d.learned_access_code == "87654321"                                   # manager saves it
+
+
+@pytest.mark.parametrize("pin", [None, "0" * 64])
+def test_account_code_not_handed_to_an_unconfirmed_address(tmp_path, cloud, pin):
+    """Address changed to some other machine that says "wrong code": the account's real code must not go there."""
+    cloud.devices = [{"dev_id": SERIAL, "name": "P1", "online": True, "dev_access_code": "87654321"}]
+    async def go():
+        (tmp_path / "c").mkdir(); (tmp_path / "l").mkdir()
+        async with FakeBambu(tmp_path / "c", fixture(FX), user="u_42", code=cloud.token, ftps=False) as broker, \
+                FakeBambu(tmp_path / "l", fixture(FX), code="87654321", ftps=False) as lan:
+            link(cloud, broker)
+            extra = {"cert_sha256": pin} if pin else {}
+            d, seen = await drive(0, lan.mqtt_port, connection="local", **extra)
+            await run_until(d, seen, lambda s: any(x.connection == ConnState.AUTH_ERROR for x in s), limit=5)
+            await d.stop()
+            return d, seen
+    d, seen = asyncio.run(go())
+    assert d.learned_access_code is None and not any(s.connection == ConnState.ONLINE for s in seen)
 
 
 def test_wrong_code_and_no_account_still_says_so(tmp_path):

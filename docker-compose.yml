@@ -12,6 +12,8 @@ services:
     environment:
       PRINTER_DASH_PORT: "8765"      # with host networking this is the port on the machine itself
       TZ: America/Los_Angeles        # your time zone (for "done at" times and history)
+      # Reaching it by a domain name (Cloudflare Tunnel, reverse proxy)? List that name, e.g.:
+      # PRINTER_DASH_ALLOWED_HOSTS: "printfloor.example.com"
     volumes:
       - printfloor-data:/data         # everything you set up lives here and survives updates
       # Or keep the data in a folder you choose (easier to back up). Create it first and make it writable by

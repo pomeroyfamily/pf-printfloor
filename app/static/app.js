@@ -138,7 +138,7 @@ function activeSlot(st) {
 }
 function slotStyle(s) {
   if (!s.present) return "";
-  const cols = [s.color_hex, ...(s.extra_colors || [])].filter(Boolean);
+  const cols = [s.color_hex, ...(s.extra_colors || [])].filter((c) => /^#[0-9a-f]{6}$/i.test(c || ""));   // goes into CSS
   if (cols.length > 1) {
     const step = 360 / cols.length;
     const stops = cols.map((c, i) => `${c} ${i * step}deg ${(i + 1) * step}deg`).join(", ");
@@ -155,7 +155,7 @@ function slotName(s) {
 function spoolEl(s) {
   const cls = ["spool", s.present ? "" : "empty", s.active ? "active" : ""].join(" ").trim();
   const label = `${s.source === "external" ? "External spool" : `Slot ${s.index + 1}`}: ${slotName(s)}${s.brand ? `, ${s.brand}` : ""}`;
-  return `<span class="${cls}" style="${slotStyle(s)}" title="${esc(label)}" role="img" aria-label="${esc(label)}"></span>`;
+  return `<span class="${cls}" style="${esc(slotStyle(s))}" title="${esc(label)}" role="img" aria-label="${esc(label)}"></span>`;
 }
 
 const PLATE_SVG = `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 34h32l-4 6H12z" fill="currentColor"/><rect x="18" y="14" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 4v6" stroke="currentColor" stroke-width="3"/></svg>`;
@@ -1877,7 +1877,7 @@ function renderDetails() {
       <form id="camForm" class="modal-body" style="padding:0" novalidate>
         <label class="field"><span>External camera URL (optional)</span>
           <input name="camera_url" value="${esc(p.camera?.url || "")}" placeholder="http://10.0.0.50:8080/stream.mjpg" inputmode="url" autocomplete="off">
-          <small>An MJPEG stream or a JPEG snapshot address, e.g. from a webcam on a Raspberry Pi. Replaces the built-in camera. Leave blank to use the built-in one.</small></label>
+          <small>An MJPEG stream or a JPEG snapshot address, e.g. from a webcam on a Raspberry Pi. Replaces the built-in camera. Leave blank to use the built-in one.${(p.camera?.url || "").includes("***") ? " Parts shown as *** (password, keys) are hidden but kept; to change the address, paste the whole new one." : ""}</small></label>
         <label class="field"><span>URL type</span>
           <select name="camera_kind">${[["auto", "Detect automatically"], ["mjpeg", "MJPEG stream"], ["snapshot", "Snapshot (refreshed)"]].map(([v, l]) => `<option value="${v}" ${(p.camera?.url_kind || "auto") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <p class="form-error" id="camError" role="alert"></p>

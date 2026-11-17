@@ -67,9 +67,10 @@ def _fan_pct(raw: Any) -> Optional[int]:
 
 
 def _hex6(rgba: Any) -> Optional[str]:
-    if not isinstance(rgba, str) or len(rgba) < 6:
+    """Printer-supplied colour ("RRGGBBAA") -> "#RRGGBB"; anything that isn't hex is dropped (it ends up in CSS)."""
+    if not isinstance(rgba, str) or not re.fullmatch(r"[0-9a-fA-F]{6}([0-9a-fA-F]{2})?", rgba.strip()):
         return None
-    return "#" + rgba[:6].upper()
+    return "#" + rgba.strip()[:6].upper()
 
 
 def _has_tag(tray: dict) -> bool:
