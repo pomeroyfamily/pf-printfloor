@@ -1,5 +1,5 @@
 # PF PrintFloor (Pomeroy Family PrintFloor) - status-only web dashboard for Bambu, Snapmaker U1/Klipper and Elegoo printers.
-FROM python:3.13-slim
+FROM python:3.15-slim
 
 LABEL org.opencontainers.image.title="PF PrintFloor" \
       org.opencontainers.image.description="Status-only web dashboard for Bambu Lab, Snapmaker U1 / Klipper and Elegoo printers" \
