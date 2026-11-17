@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import __version__, config
+from .guard import Guard, allowed_hosts_from_env, csp, script_hashes
 from .cloud import bambu as bambu_cloud
 from .discovery import klipper_scan
 from .discovery.bambu_ssdp import BambuSSDP
@@ -103,6 +104,31 @@ class LinkHistory(BaseModel):
     key: str
 
 
+def _cell(v):
+    """CSV text from printers / job names: a leading = + - @ would run as a formula in Excel; make it plain text."""
+    return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
+
+
+class NotifyUrl(BaseModel):
+    id: Optional[str] = Field(default=None, max_length=32)     # keep a saved address
+    url: Optional[str] = Field(default=None, max_length=1000)  # or add a new one
+
+
+class NotifyPerson(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    urls: list[NotifyUrl] = Field(default_factory=list, max_length=6)
+    all: dict[str, Optional[bool]] = Field(default_factory=dict)
+    printers: dict[str, dict[str, Optional[bool]]] = Field(default_factory=dict)
+
+
+class NotifyDefaults(BaseModel):
+    defaults: dict[str, bool]
+
+
+class NotifyTest(BaseModel):
+    url_id: Optional[str] = Field(default=None, max_length=32)
+
+
 class TagPrinters(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     printers: list[str] = Field(default_factory=list, max_length=500)
@@ -165,6 +191,7 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
     _ver = hashlib.sha1(b"".join((STATIC / f).read_bytes() for f in ("app.css", "app.js"))).hexdigest()[:10]
     _page = (STATIC / "index.html").read_text().replace('href="/static/app.css"', f'href="/static/app.css?v={_ver}"') \
         .replace('src="/static/app.js"', f'src="/static/app.js?v={_ver}"')
+    app.add_middleware(Guard, page_csp=csp(script_hashes(_page)), extra_hosts=allowed_hosts_from_env())
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def index(request: Request):
@@ -382,13 +409,14 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         """Live MJPEG for one viewer (popup). The upstream is shared and closes after the last viewer."""
         f = _feed(request, pid)
         try:
-            f.add_viewer()
+            f.lease()           # checks the camera and starts it; the viewer is counted once streaming begins
         except CameraUnavailable as e:
             raise HTTPException(404, str(e))
 
         async def gen():
             seq = 0
-            try:
+            f.add_viewer()      # here, not above: a browser that leaves before the stream starts must not keep
+            try:                # the camera running forever (finally only runs once the generator has started)
                 while True:
                     got = await f.next_frame(seq, 15)
                     if await request.is_disconnected():
@@ -477,14 +505,62 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         wr = csv.writer(buf)
         wr.writerow(["printer", "job", "file", "started_utc", "ended_utc", "result", "print_hours", "filament", "source"])
         for r in reversed(rows):
-            wr.writerow([r["printer_name"], r["job"], r["file_name"], r["started_at"], r["ended_at"] or "",
-                         r["result"], round(r["print_seconds"] / 3600, 2), "; ".join(r["filament"]), r["source"]])
+            wr.writerow([_cell(r["printer_name"]), _cell(r["job"]), _cell(r["file_name"]), r["started_at"],
+                         r["ended_at"] or "", r["result"], round(r["print_seconds"] / 3600, 2),
+                         _cell("; ".join(r["filament"])), r["source"]])
         return Response(buf.getvalue(), media_type="text/csv",
                         headers={"Content-Disposition": "attachment; filename=print-history.csv"})
 
     @app.get("/api/tags")
     async def list_tags(request: Request):
         return mgr(request).tags()
+
+    # ------------------------------------------------------------------ notifications
+    @app.get("/api/notify")
+    async def notify_get(request: Request):
+        return mgr(request).notifier.view()
+
+    @app.put("/api/notify/defaults")
+    async def notify_defaults(body: NotifyDefaults, request: Request):
+        n = mgr(request).notifier
+        n.set_defaults(body.defaults)
+        return n.view()
+
+    def _save_person(request: Request, pid: Optional[str], body: NotifyPerson):
+        m = mgr(request)
+        try:
+            m.notifier.save_person(pid, body.name, [u.model_dump() for u in body.urls], body.all, body.printers,
+                                   {c.id for c in m.store.list()})
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except KeyError:
+            raise HTTPException(404, "person not found")
+        return m.notifier.view()
+
+    @app.post("/api/notify/people")
+    async def notify_add(body: NotifyPerson, request: Request):
+        return _save_person(request, None, body)
+
+    @app.put("/api/notify/people/{person_id}")
+    async def notify_update(person_id: str, body: NotifyPerson, request: Request):
+        return _save_person(request, person_id, body)
+
+    @app.delete("/api/notify/people/{person_id}")
+    async def notify_delete(person_id: str, request: Request):
+        n = mgr(request).notifier
+        if not n.delete_person(person_id):
+            raise HTTPException(404, "person not found")
+        return n.view()
+
+    @app.post("/api/notify/people/{person_id}/test")
+    async def notify_test(person_id: str, body: NotifyTest, request: Request):
+        try:
+            ok, err = await mgr(request).notifier.test(person_id, body.url_id)
+        except KeyError:
+            raise HTTPException(404, "person not found")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"ok": ok, "error": err}
 
     @app.put("/api/tags")
     async def set_tag(body: TagPrinters, request: Request):
@@ -520,7 +596,8 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         path = config.THUMB_DIR / f"{pid}.png"
         if not path.is_file():
             raise HTTPException(404, "no thumbnail")
-        head = path.open("rb").read(12)
+        with path.open("rb") as fh:
+            head = fh.read(12)
         media = "image/jpeg" if head[:3] == b"\xff\xd8\xff" else \
             "image/webp" if head[:4] == b"RIFF" and head[8:12] == b"WEBP" else "image/png"
         return FileResponse(path, media_type=media, headers={"Cache-Control": "max-age=86400"})

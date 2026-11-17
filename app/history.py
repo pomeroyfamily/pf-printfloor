@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -58,6 +59,7 @@ ACTIVE = {JobState.PRINTING, JobState.PREPARING, JobState.PAUSED}
 RUNNING = {JobState.PRINTING, JobState.PREPARING}          # paused time doesn't count as print time
 END = {JobState.FINISHED: "finished", JobState.FAILED: "failed", JobState.ERROR: "failed",
        JobState.CANCELLED: "cancelled"}
+LIFETIME_REWRITE_S = 600   # an unchanged printer counter is re-saved at most this often ("checked at" time)
 RESET_DROP_S = 600       # printer counter dropping by more than 10 min = it was reset
 AUDIT_MIN_S = 3600       # flag when dashboard and printer disagree by more than 1 h ...
 AUDIT_PCT = 0.02         # ... and more than 2 %
@@ -103,12 +105,17 @@ class History:
                     self.db.execute(f"ALTER TABLE usage ADD COLUMN {col} {typ}")
             self.db.commit()
         self.open: dict[str, _Open] = {}          # printer_id -> running job
+        self._have_usage: set[str] = set()        # usage rows known to exist
+        self._lifetime_seen: dict[str, tuple] = {}   # key -> (seconds, jobs, basis, monotonic time written)
 
     # ------------------------------------------------------------------ usage rows
     def _ensure_usage(self, key: str) -> None:
+        if key in self._have_usage:          # called on every status update: write once, not every second
+            return
         with self.lock:
             self.db.execute("INSERT OR IGNORE INTO usage (key, created_at) VALUES (?, ?)", (key, _iso(_now())))
             self.db.commit()
+        self._have_usage.add(key)
 
     def _tracked(self, key: str) -> tuple[float, int, int, int]:
         """(seconds, jobs, finished, failed) tracked by the dashboard, incl. the running job."""
@@ -134,6 +141,10 @@ class History:
         only includes successfully finished jobs (Bambu)."""
         if seconds is None:
             return
+        seen = self._lifetime_seen.get(key)
+        if seen and seen[:3] == (seconds, jobs, basis) and time.monotonic() - seen[3] < LIFETIME_REWRITE_S:
+            return                           # unchanged (Klipper reports it every poll): nothing to write
+        self._lifetime_seen[key] = (seconds, jobs, basis, time.monotonic())
         self._ensure_usage(key)
         tracked_s, tracked_jobs = self._tracked_basis(key, basis)
         with self.lock:
@@ -210,6 +221,9 @@ class History:
                             (new, _iso(_now()), old, new))
             self.db.execute("DELETE FROM usage WHERE key = ?", (old,))
             self.db.commit()
+        self._have_usage.discard(old)
+        self._lifetime_seen.pop(old, None)
+        self._lifetime_seen.pop(new, None)
 
     # ------------------------------------------------------------------ job tracking
     def observe(self, cfg: PrinterConfig, st: PrinterStatus) -> list[dict[str, Any]]:

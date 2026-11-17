@@ -93,13 +93,6 @@ def test_store_reorder_persists(store, tmp_path):
     again.close()
 
 
-def test_store_find_for_discovery(store):
-    p = store.add("A1-A", "bambu.a1", "10.0.0.142", serial="039199000000017")
-    assert store.find("bambu.a1", serial="039199000000017").id == p.id
-    assert store.find("bambu.a1", host="10.0.0.142").id == p.id
-    assert store.find("bambu.a1", serial="other") is None
-
-
 def test_public_view_hides_secrets(store):
     p = store.add("X1C", "bambu.x1c", "h", secrets={"access_code": "bbbb2222"})
     pub = p.to_public()

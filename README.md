@@ -47,6 +47,9 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
   external camera URL per printer.
 - **Smart plugs (Govee)**: on/off per printer, emergency stop with typed confirmation, optional automatic
   daily power cycle.
+- **Notifications** to each person's own app (ntfy, Telegram, Discord, email, Pushover and more): finished,
+  paused, failed, offline mid-print, started; per person and per printer
+  ([guide](docs/notifications.md)).
 - **Uptime / last reboot** on the card where the printer allows it (see [notes](#uptime-and-reboot-detection)).
 - **Job history and usage**: total hours, jobs, success rate, per-printer history, imported from the
   printer's own history where available.
@@ -200,6 +203,7 @@ Environment variables:
 | `PRINTER_DASH_PORT` | `8765` | Port the web server listens on. |
 | `PRINTER_DASH_HOST` | `0.0.0.0` | Address to listen on. |
 | `PRINTER_DASH_LOG` | `INFO` | Log level. |
+| `PRINTER_DASH_ALLOWED_HOSTS` | *(empty)* | Extra names the dashboard answers to, comma-separated, e.g. `printfloor.example.com` or `*.example.com`. **Needed when you reach it by a public domain name** (Cloudflare Tunnel, reverse proxy). IP addresses, `localhost`, single-word names (`truenas`) and `.local` / `.lan` / `.home.arpa` / `.internal` names always work. See [Remote access and security](#remote-access-and-security). |
 | `TZ` | `UTC` | Time zone; used for the automatic power cycle if none is set in the app. |
 
 Everything else is configured in the app (gear menu):
@@ -229,6 +233,8 @@ Everything else is configured in the app (gear menu):
     Esc (twice if the browser is in full screen) or **Exit** leaves it.
 - **Camera popup**: the full-screen button (or double-click the picture) fills the screen with one camera.
 - **Power button** on a card (only when a plug is assigned): green = on, red = off, yellow = plug not online.
+- **Notifications** (gear menu): add people, paste each one's notification address, and tick which events they
+  get, for all printers or per printer. Step by step: [docs/notifications.md](docs/notifications.md).
 
 Filters, sort, view and grouping are remembered **per browser**. The dashboard name, locations, printers and
 all other settings are **shared** by every browser.
@@ -257,10 +263,21 @@ reach the page can use it.
   in front works well: create a self-hosted Access application for the hostname with an *Allow* policy listing
   specific email addresses, and turn on **Protect with Access** (JWT validation) on the tunnel's published
   application. Press Enter after pasting the AUD tag; the field takes a list.
+- **Reached by a domain name** (e.g. `printfloor.example.com` through a tunnel or proxy): add that name to
+  `PRINTER_DASH_ALLOWED_HOSTS`. Otherwise the dashboard answers "doesn't answer to the name …". This blocks
+  *DNS rebinding*, where a web page you visit points its own domain at the dashboard's address to control it.
 - The U1 "Smooth video" button connects directly to the printer and only works on the home network.
 
-Secrets (Bambu access codes, the Bambu account token, the Govee API key) are stored in the data folder and are
-never sent to the browser.
+What the dashboard does to protect itself:
+- **Secrets stay on the server:** Bambu access codes, the Bambu account token, the Govee API key, notification
+  addresses and passwords or tokens in camera URLs are stored in the data folder and never sent to the browser.
+- **Secrets only go where they were entered:** changing a printer's address requires typing its access code / API
+  key again. A Bambu printer that announces a new address is only followed automatically if it presents the same
+  certificate it had before.
+- **Other websites can't use it through your browser:** changes coming from another site are refused, the page
+  can't be shown inside another site, and a content security policy limits what the page may load.
+- **Printer data is treated as untrusted:** colours, names and messages from printers are checked or escaped, and
+  message and file sizes are capped.
 
 ## Behavior notes and known limitations
 
@@ -476,6 +493,7 @@ app/
   cameras.py             camera sources and the shared frame hub
   plugs.py               Govee client, rate budget, power actions and log
   autocycle.py           automatic power cycle scheduler
+  notify.py              notifications: events, who gets what, sending through Apprise
   cloud/bambu.py         optional Bambu account link (covers, devices, cloud MQTT login)
   drivers/
     base.py              lifecycle, reconnect/backoff, live vs poll mode

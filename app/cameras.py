@@ -22,6 +22,7 @@ import secrets as _secrets
 import socket
 import struct
 import threading
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -44,16 +45,26 @@ class CameraUnavailable(Exception):
     pass
 
 
+_TOKENISH = re.compile(r"[A-Za-z0-9_\-~.]{20,}")
+
+
 def safe_url(url: str) -> str:
-    """URL with any password hidden (for the UI and logs)."""
+    """URL for the UI and logs with anything that could be a credential hidden: the password, every query value,
+    and long token-like path parts (some cameras put the key in the path). A value sent back unchanged from the
+    UI keeps the saved one (see Manager.update)."""
     try:
         p = urllib.parse.urlsplit(url)
+        port = p.port
     except ValueError:
         return "?"
     if p.password:
-        netloc = f"{p.username}:***@{p.hostname}" + (f":{p.port}" if p.port else "")
-        return urllib.parse.urlunsplit(p._replace(netloc=netloc))
-    return url
+        p = p._replace(netloc=f"{p.username}:***@{p.hostname}" + (f":{port}" if port else ""))
+    if p.query:
+        q = urllib.parse.parse_qsl(p.query, keep_blank_values=True)
+        p = p._replace(query="&".join(f"{urllib.parse.quote(k, safe='')}=***" for k, _ in q))
+    if p.path:
+        p = p._replace(path="/".join("***" if _TOKENISH.fullmatch(seg) else seg for seg in p.path.split("/")))
+    return urllib.parse.urlunsplit(p)
 
 
 def _opener_for(url: str):

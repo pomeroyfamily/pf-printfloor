@@ -89,18 +89,6 @@ class PrinterStore:
             r = self._db.execute("SELECT * FROM printers WHERE id = ?", (printer_id,)).fetchone()
         return self._row(r) if r else None
 
-    def find(self, driver: str, serial: Optional[str] = None, host: Optional[str] = None) -> Optional[PrinterConfig]:
-        """Used by discovery to mark printers as already added (serial first, then host)."""
-        with self._lock:
-            r = None
-            if serial:
-                r = self._db.execute("SELECT * FROM printers WHERE driver = ? AND serial = ?",
-                                     (driver, serial)).fetchone()
-            if r is None and host:
-                r = self._db.execute("SELECT * FROM printers WHERE driver = ? AND host = ?",
-                                     (driver, host)).fetchone()
-        return self._row(r) if r else None
-
     # ------------------------------------------------------------------ changes
     def add(self, name: str, driver: str, host: str, serial: Optional[str] = None,
             settings: Optional[dict] = None, secrets: Optional[dict] = None) -> PrinterConfig:

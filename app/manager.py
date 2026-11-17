@@ -19,13 +19,14 @@ from .cameras import Cameras, builtin_kind, safe_url
 from .history import History, usage_key
 from .plugs import Plugs
 from .autocycle import AutoCycle, settings_of as autocycle_settings
+from .notify import Notifier
 from .drivers import driver_for_model_code, get_driver
 from .store import DuplicatePrinter
 from .drivers.base import PrinterBase
 from .models import ConnState, PrinterStatus
 from .store import PrinterConfig, PrinterStore
 
-from .transports.tls import peer_common_name
+from .transports.tls import cert_fingerprint, common_name, peer_cert
 
 log = logging.getLogger(__name__)
 
@@ -69,12 +70,16 @@ class Manager:
         self.drivers: dict[str, PrinterBase] = {}
         self.status: dict[str, PrinterStatus] = {}
         self._moving: set[str] = set()                # printers being moved to an announced new address
+        self._pinning: set[str] = set()               # Bambu certificates being remembered (see _pin_cert)
         self.reported_names: dict[str, str] = {}     # last name each printer reported (see _auto_rename)
+        self._names_checked: set[str] = set()
         self._subs: set[asyncio.Queue] = set()
         self._bambu_hours_task: Optional[asyncio.Task] = None
         self.cameras = Cameras()
         self.plugs = Plugs(store)
         self.autocycle = AutoCycle(store, self.plugs, self.status.get, self.broadcast_printers)
+        self.notifier = Notifier(store, lambda pid: getattr(self.store.get(pid), "name", None),
+                                 lambda: self.dashboard()["name"])
         self._conn_was: dict[str, Any] = {}
         self._boots: dict[str, dict] = dict(store.get_app_setting("bambu_boot") or {})   # pid -> seq, booted_at
         self._boots_saved_at: Optional[float] = None     # None = not saved yet this run
@@ -90,6 +95,7 @@ class Manager:
                 self._start(cfg)
             self._bambu_hours_task = asyncio.create_task(self._bambu_hours_loop())
             self.autocycle.start(self.store.list)
+            self.notifier.start()
 
     async def stop(self) -> None:
         if self._bambu_hours_task:
@@ -97,6 +103,7 @@ class Manager:
         self.cameras.stop_all()
         self.plugs.stop()
         self.autocycle.stop()
+        self.notifier.stop()
         try:
             self._save_last_seen()
             self._save_boots()
@@ -156,7 +163,10 @@ class Manager:
         name = " ".join((name or "").split())[:60]
         if not name:
             return
+        if self.reported_names.get(printer_id) == name and printer_id in self._names_checked:
+            return                           # same name as last report (every poll): nothing to do
         self.reported_names[printer_id] = name
+        self._names_checked.add(printer_id)
         cfg = self.store.get(printer_id)
         if not cfg or not cfg.settings.get("auto_name") or cfg.name == name:
             return
@@ -191,10 +201,18 @@ class Manager:
                 log.info("printer %s: announced at %s but still answers at %s - not moving", printer_id, new_host,
                          cfg.host)
                 return
-            cn = await asyncio.to_thread(peer_common_name, new_host, port)
+            der = await asyncio.to_thread(peer_cert, new_host, port)
+            cn = common_name(der or b"")
             if cn != cfg.serial:
                 log.warning("printer %s: %s claims to be it but its certificate says %r - not moving", printer_id,
                             new_host, cn)
+                return
+            # The serial alone can be faked (it's broadcast, and the certificate isn't verified): the new address
+            # must present the exact certificate this printer had at its old address.
+            pinned = cfg.settings.get("cert_sha256")
+            if not pinned or cert_fingerprint(der) != pinned:
+                log.warning("printer %s: %s has %s certificate - not moving; set the new address in Details",
+                            printer_id, new_host, "a different" if pinned else "no remembered")
                 return
             moved = {"from": cfg.host, "to": new_host, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
             new = self.store.update(printer_id, host=new_host, settings={**cfg.settings, "address_changed": moved})
@@ -203,6 +221,25 @@ class Manager:
             self.broadcast_printers()
         finally:
             self._moving.discard(printer_id)
+
+    async def _pin_cert(self, printer_id: str) -> None:
+        """Remember a Bambu printer's certificate while it's connected at its known address, so an automatic move to
+        a new address (_follow_new_address) can check it's really the same printer."""
+        try:
+            cfg = self.store.get(printer_id)
+            if not cfg or cfg.settings.get("cert_sha256"):
+                return
+            der = await asyncio.to_thread(peer_cert, cfg.host, int(cfg.settings.get("mqtt_port") or 8883))
+            if der and common_name(der) == cfg.serial:
+                cfg = self.store.get(printer_id)
+                if cfg and not cfg.settings.get("cert_sha256"):
+                    new = self.store.update(printer_id, settings={**cfg.settings, "cert_sha256": cert_fingerprint(der)})
+                    if printer_id in self.drivers:
+                        self.drivers[printer_id].config = new
+        except Exception:  # noqa: BLE001
+            log.debug("printer %s: could not read its certificate", printer_id)
+        finally:
+            self._pinning.discard(printer_id)
 
     def _heard_name(self, cfg: PrinterConfig) -> Optional[str]:
         if not cfg.driver.startswith("bambu."):
@@ -334,6 +371,10 @@ class Manager:
             self.autocycle.observe(st)
         except Exception:  # noqa: BLE001
             log.exception("auto power cycle: observe failed")
+        try:
+            self.notifier.observe(st)
+        except Exception:  # noqa: BLE001 - notifications must never break live status
+            log.exception("notifications: observe failed")
         d = self.drivers.get(st.printer_id)
         if d and d.learned_serial and not d.config.serial:
             try:                                  # keep the serial: lets discovery mark it "Added"
@@ -352,6 +393,10 @@ class Manager:
                 log.warning("printer %s: could not save the new access code", st.printer_id)
         if st.device_name:
             self._auto_rename(st.printer_id, st.device_name)
+        if (d and st.connection == ConnState.ONLINE and st.link == "local" and d.config.driver.startswith("bambu.")
+                and not d.config.settings.get("cert_sha256") and st.printer_id not in self._pinning):
+            self._pinning.add(st.printer_id)
+            asyncio.create_task(self._pin_cert(st.printer_id))
         cfg = d.config if d else self.store.get(st.printer_id)
         if cfg:
             try:
@@ -371,16 +416,21 @@ class Manager:
         self._broadcast({"type": "status", "id": st.printer_id, "status": st.model_dump(mode="json")})
 
     def on_job_event(self, ev: dict) -> None:
-        """Job started/ended. Notifications hook in here."""
+        """Job started/ended: job history in the browser and notifications."""
         log.info("printer %s: %s %s %s", ev.get("printer_id"), ev["type"], ev.get("job"), ev.get("result", ""))
+        try:
+            self.notifier.on_job_event(ev)
+        except Exception:  # noqa: BLE001
+            log.exception("notifications: job event failed")
         self._broadcast({"type": "job", **ev})
 
     def broadcast_printers(self) -> None:
         self._broadcast({"type": "printers", "printers": self.printers(), "layout": self.layout()})
 
     # ------------------------------------------------------------------ views
-    def printer_view(self, cfg: PrinterConfig) -> dict[str, Any]:
+    def printer_view(self, cfg: PrinterConfig, locs: Optional[dict] = None) -> dict[str, Any]:
         d = cfg.to_public()
+        d["settings"] = {k: v for k, v in d["settings"].items() if k != "camera_url"}   # may hold a password/token
         try:
             cls = get_driver(cfg.driver)
             d.update(maker=cls.maker, model=cfg.settings.get("model_label") or cls.model_name, family=cls.family,
@@ -390,7 +440,7 @@ class Manager:
         d["tags"] = cfg.settings.get("tags") or []
         d["follow_name"] = bool(cfg.settings.get("auto_name"))
         d["reported_name"] = self.reported_names.get(cfg.id) or self._heard_name(cfg)
-        d["location"] = self.location_of(cfg)
+        d["location"] = self.location_of(cfg, locs)
         if cfg.driver.startswith("bambu."):
             d["connection"] = cfg.settings.get("connection") or "auto"
         url = (cfg.settings.get("camera_url") or "").strip()
@@ -402,8 +452,16 @@ class Manager:
         d["autocycle"] = self.autocycle.view(cfg) if d["power"] else None
         return d
 
+    @staticmethod
+    def _fields(cfg: PrinterConfig) -> list:
+        try:
+            return list(get_driver(cfg.driver).fields)
+        except KeyError:
+            return []
+
     def printers(self) -> list[dict[str, Any]]:
-        return [self.printer_view(c) for c in self.store.list()]
+        locs = self.locations()                       # once, not once per printer
+        return [self.printer_view(c, locs) for c in self.store.list()]
 
     # ------------------------------------------------------------------ changes
     async def add(self, name: Optional[str], driver: str, host: str, serial: Optional[str],
@@ -464,17 +522,25 @@ class Manager:
             settings = dict(fields.get("settings", cfg.settings))
             if camera_url is not None:
                 url = camera_url.strip()
-                if "***@" in url:                       # masked value sent back unchanged: keep the saved one
-                    url = cfg.settings.get("camera_url") or ""
+                saved = cfg.settings.get("camera_url") or ""
+                if "***" in url and saved and url == safe_url(saved):   # masked value sent back unchanged: keep it
+                    url = saved
                 settings["camera_url"] = url
             if camera_kind is not None:
                 settings["camera_kind"] = camera_kind
             fields["settings"] = settings
         if host is not None and host != cfg.host:
+            # Saved secrets (access code, API key) are only ever sent to the address they were entered for. A new
+            # address needs them typed again, so nobody can point a printer at their own machine to collect them.
+            given = {k for k, v in (secrets or {}).items() if v}
+            missing = [k for k, v in cfg.secrets.items() if v and k not in given]
+            if missing:
+                label = next((f.label for f in self._fields(cfg) if f.key == missing[0]), missing[0].replace("_", " "))
+                raise ValueError(f"Enter the {label.lower()} again for the new address.")
             fields["host"] = host
-            if cfg.settings.get("address_changed"):    # typed by hand: the old "it moved" note no longer applies
-                fields["settings"] = {k: v for k, v in fields.get("settings", cfg.settings).items()
-                                      if k != "address_changed"}
+            # typed by hand: the old "it moved" note no longer applies, and the certificate is remembered again
+            fields["settings"] = {k: v for k, v in fields.get("settings", cfg.settings).items()
+                                  if k not in ("address_changed", "cert_sha256")}
         if serial is not None:
             fields["serial"] = serial or None
         if secrets:
@@ -495,6 +561,7 @@ class Manager:
             await d.stop()
         self.status.pop(printer_id, None)
         self.cameras.forget(printer_id)
+        self.notifier.forget_printer(printer_id)
         ok = self.store.remove(printer_id)
         self.history.close_orphans({c.id for c in self.store.list()})   # its history is kept
         (config.THUMB_DIR / f"{printer_id}.png").unlink(missing_ok=True)
@@ -666,8 +733,8 @@ class Manager:
         default = v.get("default") if any(x["id"] == v.get("default") for x in items) else items[0]["id"]
         return {"items": items, "default": default}
 
-    def location_of(self, cfg: PrinterConfig) -> str:
-        locs = self.locations()
+    def location_of(self, cfg: PrinterConfig, locs: Optional[dict] = None) -> str:
+        locs = locs or self.locations()
         loc = cfg.settings.get("location")
         return loc if any(x["id"] == loc for x in locs["items"]) else locs["default"]
 

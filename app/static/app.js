@@ -138,7 +138,7 @@ function activeSlot(st) {
 }
 function slotStyle(s) {
   if (!s.present) return "";
-  const cols = [s.color_hex, ...(s.extra_colors || [])].filter(Boolean);
+  const cols = [s.color_hex, ...(s.extra_colors || [])].filter((c) => /^#[0-9a-f]{6}$/i.test(c || ""));   // goes into CSS
   if (cols.length > 1) {
     const step = 360 / cols.length;
     const stops = cols.map((c, i) => `${c} ${i * step}deg ${(i + 1) * step}deg`).join(", ");
@@ -155,7 +155,7 @@ function slotName(s) {
 function spoolEl(s) {
   const cls = ["spool", s.present ? "" : "empty", s.active ? "active" : ""].join(" ").trim();
   const label = `${s.source === "external" ? "External spool" : `Slot ${s.index + 1}`}: ${slotName(s)}${s.brand ? `, ${s.brand}` : ""}`;
-  return `<span class="${cls}" style="${slotStyle(s)}" title="${esc(label)}" role="img" aria-label="${esc(label)}"></span>`;
+  return `<span class="${cls}" style="${esc(slotStyle(s))}" title="${esc(label)}" role="img" aria-label="${esc(label)}"></span>`;
 }
 
 const PLATE_SVG = `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 34h32l-4 6H12z" fill="currentColor"/><rect x="18" y="14" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 4v6" stroke="currentColor" stroke-width="3"/></svg>`;
@@ -861,6 +861,202 @@ function allTags() {
   for (const t of state.tagList) seen.set(t.name.toLowerCase(), t.name);
   for (const p of state.printers) for (const t of p.tags || []) if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t);
   return [...seen.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+// ---------------------------------------------------------------- notifications
+// Who gets what: defaults -> each person's "All printers" row -> each printer row. A box only stores a value when it
+// was changed; otherwise it follows the layer above (shown faint). Clicking a box back to what it would follow anyway
+// makes it follow again.
+state.notify = null;
+state.notifyOpen = new Set();
+state.notifyMsg = {};          // person id (or "_") -> message under that person
+state.notifyArmed = null;
+
+const NOTIFY_GUIDE = "https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/notifications.md";
+const NOTIFY_SHORT = { finished: "Finished", paused: "Paused", failed: "Failed", offline: "Offline", started: "Started" };
+
+async function loadNotify() {
+  try { state.notify = await api("GET", "/api/notify"); } catch (e) { state.notifyMsg._ = nErr(e.message); }
+  renderNotifyDlg();
+}
+function notifyPerson(id) { return state.notify.people.find((p) => p.id === id); }
+function nInheritAll(e) { return !!state.notify.defaults[e]; }
+function nAllEff(p, e) { return p.all[e] ?? nInheritAll(e); }
+function nCellEff(p, pid, e) { return p.printers[pid]?.[e] ?? nAllEff(p, e); }
+
+function nCell(p, row, e) {
+  const explicit = row === "*" ? p.all[e] : p.printers[row]?.[e];
+  const eff = row === "*" ? nAllEff(p, e) : nCellEff(p, row, e);
+  return `<td data-label="${esc(NOTIFY_SHORT[e])}"><input type="checkbox" class="${explicit == null ? "follow" : "set"}"
+    data-ncell="${esc(row)}" data-event="${esc(e)}"${eff ? " checked" : ""}
+    title="${explicit == null ? "Follows the row above" : "Changed for this row"}"
+    aria-label="${esc(NOTIFY_SHORT[e])}${row === "*" ? " on all printers" : ""}"></td>`;
+}
+
+function nGrid(p) {
+  const ev = state.notify.events;
+  const printers = [...state.printers].sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }));
+  const rowTools = (row, changed) => `<td class="nrow-tools">
+      <button type="button" class="link-btn" data-nrow="${esc(row)}" data-set="all">All</button>
+      <button type="button" class="link-btn" data-nrow="${esc(row)}" data-set="none">None</button>
+      ${changed ? `<button type="button" class="link-btn" data-nrow="${esc(row)}" data-set="reset">Reset</button>` : ""}</td>`;
+  return `<table class="ngrid">
+    <thead><tr><th></th>${ev.map((e) => `<th>${esc(NOTIFY_SHORT[e])}</th>`).join("")}<th></th></tr></thead>
+    <tbody>
+      <tr class="nall"><th scope="row">All printers</th>${ev.map((e) => nCell(p, "*", e)).join("")}${rowTools("*", Object.keys(p.all).length > 0)}</tr>
+      ${printers.map((pr) => `<tr><th scope="row">${esc(pr.name)}</th>${ev.map((e) => nCell(p, pr.id, e)).join("")}${rowTools(pr.id, !!p.printers[pr.id])}</tr>`).join("")}
+    </tbody></table>`;
+}
+
+function nMsg(key) {
+  const m = state.notifyMsg[key];
+  return m?.text ? `<p class="nmsg ${m.ok ? "ok" : "bad"}" role="${m.ok ? "status" : "alert"}">${esc(m.text)}</p>` : "";
+}
+const nOk = (text) => ({ text, ok: true });
+const nErr = (text) => ({ text, ok: false });
+
+function renderNotifyDlg() {
+  const n = state.notify;
+  const body = $("#notifyBody");
+  if (!n) { body.innerHTML = `<p class="note">${esc(state.notifyMsg._?.text || "Loading…")}</p>`; return; }
+  const ev = n.events;
+  body.innerHTML = `
+    <p class="note">Alerts go to each person's own app: ntfy, Telegram, Discord, email, Pushover and more. Each person
+      gets an address from their service and pastes it here.</p>
+    <section class="nsec">
+      <h3>Defaults</h3>
+      <p class="note">What a new person starts with. People follow these unless a box was changed for them.</p>
+      <div class="ndefaults">${ev.map((e) => `<label class="check"><input type="checkbox" data-ndef="${esc(e)}"${n.defaults[e] ? " checked" : ""}> ${esc(n.titles[e])}</label>`).join("")}</div>
+    </section>
+    <section class="nsec">
+      <h3>People</h3>
+      ${n.people.map((p) => {
+        const open = state.notifyOpen.has(p.id);
+        const armed = state.notifyArmed === p.id;
+        return `<div class="nperson" data-person="${esc(p.id)}">
+          <button type="button" class="nperson-head" data-ntoggle aria-expanded="${open}">
+            <b>${esc(p.name)}</b>
+            <span class="muted">${p.urls.length ? p.urls.map((u) => esc(u.label)).join(", ") : "no address yet"}</span>
+            <span aria-hidden="true">${open ? "▴" : "▾"}</span>
+          </button>
+          ${open ? `<div class="nperson-body">
+            <div class="nrow"><input data-nname value="${esc(p.name)}" maxlength="40" aria-label="Name">
+              <button type="button" class="btn" data-nrename>Rename</button></div>
+            <div class="naddrs">${p.urls.map((u) => `<div class="naddr"><span>${esc(u.label)}</span>
+                <button type="button" class="btn" data-ntest="${esc(u.id)}">Send test</button>
+                <button type="button" class="btn" data-nremove="${esc(u.id)}">Remove</button></div>`).join("")}
+              <form class="nrow" data-naddurl><input name="url" autocomplete="off" spellcheck="false"
+                placeholder="Address, e.g. ntfy://my-long-random-topic" aria-label="New notification address">
+                <button type="submit" class="btn">Add address</button></form></div>
+            <p class="note">Faint boxes follow the row above; click to change one. Click it back to follow again.</p>
+            <div class="ngrid-wrap">${nGrid(p)}</div>
+            <div class="nrow"><button type="button" class="btn danger${armed ? " armed" : ""}" data-ndelete>${armed ? `Click again to remove ${esc(p.name)}` : `Remove ${esc(p.name)}`}</button></div>
+          </div>` : ""}
+          ${nMsg(p.id)}
+        </div>`;
+      }).join("")}
+      <form class="nrow" data-naddperson><input name="name" maxlength="40" placeholder="Name, e.g. Danny" aria-label="New person's name">
+        <button type="submit" class="btn primary">Add person</button></form>
+      ${nMsg("_")}
+    </section>
+    ${n.recent.length ? `<section class="nsec"><h3>Recently sent</h3><ul class="nrecent">${n.recent.slice(0, 8).map((r) =>
+      `<li><span class="${r.ok ? "" : "bad"}">${r.ok ? "✓" : "✕"}</span> ${esc(fmtWhen(r.at))} · ${esc(r.title)}${r.error ? ` <span class="muted">(${esc(r.error)})</span>` : ""}</li>`).join("")}</ul></section>` : ""}
+    <p class="note help-foot">Setting up ntfy, Telegram, Discord, email and others:
+      <a href="${NOTIFY_GUIDE}" target="_blank" rel="noopener">Notifications guide</a></p>`;
+}
+
+async function savePerson(p, urls) {
+  state.notify = await api("PUT", `/api/notify/people/${encodeURIComponent(p.id)}`, {
+    name: p.name, urls: urls || p.urls.map((u) => ({ id: u.id })), all: p.all, printers: p.printers,
+  });
+}
+
+function setupNotify() {
+  $("#notifyBtn").addEventListener("click", () => {
+    state.notifyMsg = {}; state.notifyArmed = null;
+    renderNotifyDlg(); $("#notifyDlg").showModal(); loadNotify();
+  });
+  const body = $("#notifyBody");
+  body.addEventListener("change", async (e) => {
+    const t = e.target;
+    try {
+      if (t.dataset.ndef) {
+        state.notify = await api("PUT", "/api/notify/defaults", { defaults: { ...state.notify.defaults, [t.dataset.ndef]: t.checked } });
+      } else if (t.dataset.ncell) {
+        const p = notifyPerson(t.closest("[data-person]").dataset.person);
+        const row = t.dataset.ncell, ev = t.dataset.event;
+        const inherited = row === "*" ? nInheritAll(ev) : nAllEff(p, ev);
+        const target = row === "*" ? p.all : (p.printers[row] ||= {});
+        if (t.checked === inherited) delete target[ev]; else target[ev] = t.checked;   // back to what it follows
+        if (row !== "*" && !Object.keys(target).length) delete p.printers[row];
+        await savePerson(p);
+      } else return;
+      renderNotifyDlg();
+    } catch (err) { state.notifyMsg._ = nErr(err.message); await loadNotify(); }
+  });
+  body.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      if (f.matches("[data-naddperson]")) {
+        const name = f.name.value.trim();
+        if (!name) return;
+        const before = new Set(state.notify.people.map((p) => p.id));
+        state.notify = await api("POST", "/api/notify/people", { name, urls: [] });
+        const added = state.notify.people.find((p) => !before.has(p.id));
+        if (added) state.notifyOpen.add(added.id);
+        state.notifyMsg._ = null;
+      } else if (f.matches("[data-naddurl]")) {
+        const p = notifyPerson(f.closest("[data-person]").dataset.person);
+        const url = f.url.value.trim();
+        if (!url) return;
+        await savePerson(p, [...p.urls.map((u) => ({ id: u.id })), { url }]);
+        state.notifyMsg[p.id] = nOk("Address saved. Use Send test to check it.");
+      }
+      renderNotifyDlg();
+    } catch (err) {
+      const pid = f.closest("[data-person]")?.dataset.person || "_";
+      state.notifyMsg[pid] = nErr(err.message); renderNotifyDlg();
+    }
+  });
+  body.addEventListener("click", async (e) => {
+    const el = e.target.closest("button");
+    const box = e.target.closest("[data-person]");
+    if (!el || !box || el.type === "submit") return;
+    const p = notifyPerson(box.dataset.person);
+    try {
+      if (el.matches("[data-ntoggle]")) {
+        state.notifyOpen.has(p.id) ? state.notifyOpen.delete(p.id) : state.notifyOpen.add(p.id);
+      } else if (el.matches("[data-nrename]")) {
+        p.name = box.querySelector("[data-nname]").value.trim() || p.name;
+        await savePerson(p);
+      } else if (el.dataset.nremove) {
+        await savePerson(p, p.urls.filter((u) => u.id !== el.dataset.nremove).map((u) => ({ id: u.id })));
+        state.notifyMsg[p.id] = null;
+      } else if (el.dataset.ntest) {
+        el.disabled = true; el.textContent = "Sending…";
+        const r = await api("POST", `/api/notify/people/${encodeURIComponent(p.id)}/test`, { url_id: el.dataset.ntest });
+        state.notifyMsg[p.id] = r.ok ? nOk("Test sent. Check the phone or app.") : nErr(`Not sent: ${r.error}`);
+      } else if (el.dataset.nrow) {
+        const row = el.dataset.nrow, how = el.dataset.set;
+        if (row === "*") {
+          p.all = how === "reset" ? {} : Object.fromEntries(state.notify.events.map((ev) => [ev, how === "all"])
+            .filter(([ev, v]) => v !== nInheritAll(ev)));
+        } else if (how === "reset") {
+          delete p.printers[row];
+        } else {
+          const r = Object.fromEntries(state.notify.events.map((ev) => [ev, how === "all"]).filter(([ev, v]) => v !== nAllEff(p, ev)));
+          if (Object.keys(r).length) p.printers[row] = r; else delete p.printers[row];
+        }
+        await savePerson(p);
+      } else if (el.matches("[data-ndelete]")) {
+        if (state.notifyArmed !== p.id) { state.notifyArmed = p.id; renderNotifyDlg(); return; }
+        state.notifyArmed = null;
+        state.notify = await api("DELETE", `/api/notify/people/${encodeURIComponent(p.id)}`);
+      } else return;
+      renderNotifyDlg();
+    } catch (err) { state.notifyMsg[p.id] = nErr(err.message); await loadNotify(); }
+  });
 }
 
 // ---------------------------------------------------------------- manage tags (add / rename / delete / which printers)
@@ -1681,7 +1877,7 @@ function renderDetails() {
       <form id="camForm" class="modal-body" style="padding:0" novalidate>
         <label class="field"><span>External camera URL (optional)</span>
           <input name="camera_url" value="${esc(p.camera?.url || "")}" placeholder="http://10.0.0.50:8080/stream.mjpg" inputmode="url" autocomplete="off">
-          <small>An MJPEG stream or a JPEG snapshot address, e.g. from a webcam on a Raspberry Pi. Replaces the built-in camera. Leave blank to use the built-in one.</small></label>
+          <small>An MJPEG stream or a JPEG snapshot address, e.g. from a webcam on a Raspberry Pi. Replaces the built-in camera. Leave blank to use the built-in one.${(p.camera?.url || "").includes("***") ? " Parts shown as *** (password, keys) are hidden but kept; to change the address, paste the whole new one." : ""}</small></label>
         <label class="field"><span>URL type</span>
           <select name="camera_kind">${[["auto", "Detect automatically"], ["mjpeg", "MJPEG stream"], ["snapshot", "Snapshot (refreshed)"]].map(([v, l]) => `<option value="${v}" ${(p.camera?.url_kind || "auto") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <p class="form-error" id="camError" role="alert"></p>
@@ -2496,6 +2692,7 @@ setupGroups();
 setupLocs();
 setupLayoutDlg();
 setupTags();
+setupNotify();
 $("#aboutBtn").addEventListener("click", async () => {
   const body = $("#aboutBody");
   body.innerHTML = `<p class="muted">Loading…</p>`;

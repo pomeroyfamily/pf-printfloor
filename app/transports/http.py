@@ -30,9 +30,11 @@ class HttpJson:
             reason = getattr(e, "reason", e)
             raise PrinterUnreachable(f"{self.base} not reachable ({reason})") from e
 
-    def get(self, path: str) -> Any:
+    def get(self, path: str, max_bytes: int = 16 * 1024 * 1024) -> Any:
         with self._open(path) as r:
-            body = r.read()
+            body = r.read(max_bytes + 1)
+        if len(body) > max_bytes:
+            raise DriverError(f"answer to {path} too large")
         try:
             return json.loads(body.decode("utf-8", "replace"))
         except ValueError as e:
