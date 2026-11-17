@@ -47,6 +47,9 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
   external camera URL per printer.
 - **Smart plugs (Govee)**: on/off per printer, emergency stop with typed confirmation, optional automatic
   daily power cycle.
+- **Notifications** to each person's own app (ntfy, Telegram, Discord, email, Pushover and more): finished,
+  paused, failed, offline mid-print, started; per person and per printer
+  ([guide](docs/notifications.md)).
 - **Uptime / last reboot** on the card where the printer allows it (see [notes](#uptime-and-reboot-detection)).
 - **Job history and usage**: total hours, jobs, success rate, per-printer history, imported from the
   printer's own history where available.
@@ -229,6 +232,8 @@ Everything else is configured in the app (gear menu):
     Esc (twice if the browser is in full screen) or **Exit** leaves it.
 - **Camera popup**: the full-screen button (or double-click the picture) fills the screen with one camera.
 - **Power button** on a card (only when a plug is assigned): green = on, red = off, yellow = plug not online.
+- **Notifications** (gear menu): add people, paste each one's notification address, and tick which events they
+  get, for all printers or per printer. Step by step: [docs/notifications.md](docs/notifications.md).
 
 Filters, sort, view and grouping are remembered **per browser**. The dashboard name, locations, printers and
 all other settings are **shared** by every browser.
@@ -476,6 +481,7 @@ app/
   cameras.py             camera sources and the shared frame hub
   plugs.py               Govee client, rate budget, power actions and log
   autocycle.py           automatic power cycle scheduler
+  notify.py              notifications: events, who gets what, sending through Apprise
   cloud/bambu.py         optional Bambu account link (covers, devices, cloud MQTT login)
   drivers/
     base.py              lifecycle, reconnect/backoff, live vs poll mode

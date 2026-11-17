@@ -26,3 +26,18 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+# Python packages
+
+Not part of this repository: installed from PyPI (`requirements.txt`) and included in the Docker image. Each keeps its
+own license.
+
+| Package | License | Why |
+|---|---|---|
+| fastapi, starlette | MIT, BSD-3-Clause | web server and API |
+| uvicorn | BSD-3-Clause | runs the web server |
+| pydantic | MIT | data models |
+| paho-mqtt | EPL-2.0 or BSD-3-Clause | Bambu MQTT |
+| apprise | BSD-2-Clause | sending notifications |
+| requests, requests-oauthlib, urllib3, certifi | Apache-2.0, ISC, MIT, MPL-2.0 | used by apprise |
+| markdown, PyYAML, click | BSD-3-Clause, MIT, BSD-3-Clause | used by apprise |

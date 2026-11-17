@@ -103,6 +103,26 @@ class LinkHistory(BaseModel):
     key: str
 
 
+class NotifyUrl(BaseModel):
+    id: Optional[str] = Field(default=None, max_length=32)     # keep a saved address
+    url: Optional[str] = Field(default=None, max_length=1000)  # or add a new one
+
+
+class NotifyPerson(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    urls: list[NotifyUrl] = Field(default_factory=list, max_length=6)
+    all: dict[str, Optional[bool]] = Field(default_factory=dict)
+    printers: dict[str, dict[str, Optional[bool]]] = Field(default_factory=dict)
+
+
+class NotifyDefaults(BaseModel):
+    defaults: dict[str, bool]
+
+
+class NotifyTest(BaseModel):
+    url_id: Optional[str] = Field(default=None, max_length=32)
+
+
 class TagPrinters(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     printers: list[str] = Field(default_factory=list, max_length=500)
@@ -485,6 +505,53 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
     @app.get("/api/tags")
     async def list_tags(request: Request):
         return mgr(request).tags()
+
+    # ------------------------------------------------------------------ notifications
+    @app.get("/api/notify")
+    async def notify_get(request: Request):
+        return mgr(request).notifier.view()
+
+    @app.put("/api/notify/defaults")
+    async def notify_defaults(body: NotifyDefaults, request: Request):
+        n = mgr(request).notifier
+        n.set_defaults(body.defaults)
+        return n.view()
+
+    def _save_person(request: Request, pid: Optional[str], body: NotifyPerson):
+        m = mgr(request)
+        try:
+            m.notifier.save_person(pid, body.name, [u.model_dump() for u in body.urls], body.all, body.printers,
+                                   {c.id for c in m.store.list()})
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except KeyError:
+            raise HTTPException(404, "person not found")
+        return m.notifier.view()
+
+    @app.post("/api/notify/people")
+    async def notify_add(body: NotifyPerson, request: Request):
+        return _save_person(request, None, body)
+
+    @app.put("/api/notify/people/{person_id}")
+    async def notify_update(person_id: str, body: NotifyPerson, request: Request):
+        return _save_person(request, person_id, body)
+
+    @app.delete("/api/notify/people/{person_id}")
+    async def notify_delete(person_id: str, request: Request):
+        n = mgr(request).notifier
+        if not n.delete_person(person_id):
+            raise HTTPException(404, "person not found")
+        return n.view()
+
+    @app.post("/api/notify/people/{person_id}/test")
+    async def notify_test(person_id: str, body: NotifyTest, request: Request):
+        try:
+            ok, err = await mgr(request).notifier.test(person_id, body.url_id)
+        except KeyError:
+            raise HTTPException(404, "person not found")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {"ok": ok, "error": err}
 
     @app.put("/api/tags")
     async def set_tag(body: TagPrinters, request: Request):

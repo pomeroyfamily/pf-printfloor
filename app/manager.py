@@ -19,6 +19,7 @@ from .cameras import Cameras, builtin_kind, safe_url
 from .history import History, usage_key
 from .plugs import Plugs
 from .autocycle import AutoCycle, settings_of as autocycle_settings
+from .notify import Notifier
 from .drivers import driver_for_model_code, get_driver
 from .store import DuplicatePrinter
 from .drivers.base import PrinterBase
@@ -75,6 +76,8 @@ class Manager:
         self.cameras = Cameras()
         self.plugs = Plugs(store)
         self.autocycle = AutoCycle(store, self.plugs, self.status.get, self.broadcast_printers)
+        self.notifier = Notifier(store, lambda pid: getattr(self.store.get(pid), "name", None),
+                                 lambda: self.dashboard()["name"])
         self._conn_was: dict[str, Any] = {}
         self._boots: dict[str, dict] = dict(store.get_app_setting("bambu_boot") or {})   # pid -> seq, booted_at
         self._boots_saved_at: Optional[float] = None     # None = not saved yet this run
@@ -90,6 +93,7 @@ class Manager:
                 self._start(cfg)
             self._bambu_hours_task = asyncio.create_task(self._bambu_hours_loop())
             self.autocycle.start(self.store.list)
+            self.notifier.start()
 
     async def stop(self) -> None:
         if self._bambu_hours_task:
@@ -97,6 +101,7 @@ class Manager:
         self.cameras.stop_all()
         self.plugs.stop()
         self.autocycle.stop()
+        self.notifier.stop()
         try:
             self._save_last_seen()
             self._save_boots()
@@ -334,6 +339,10 @@ class Manager:
             self.autocycle.observe(st)
         except Exception:  # noqa: BLE001
             log.exception("auto power cycle: observe failed")
+        try:
+            self.notifier.observe(st)
+        except Exception:  # noqa: BLE001 - notifications must never break live status
+            log.exception("notifications: observe failed")
         d = self.drivers.get(st.printer_id)
         if d and d.learned_serial and not d.config.serial:
             try:                                  # keep the serial: lets discovery mark it "Added"
@@ -371,8 +380,12 @@ class Manager:
         self._broadcast({"type": "status", "id": st.printer_id, "status": st.model_dump(mode="json")})
 
     def on_job_event(self, ev: dict) -> None:
-        """Job started/ended. Notifications hook in here."""
+        """Job started/ended: job history in the browser and notifications."""
         log.info("printer %s: %s %s %s", ev.get("printer_id"), ev["type"], ev.get("job"), ev.get("result", ""))
+        try:
+            self.notifier.on_job_event(ev)
+        except Exception:  # noqa: BLE001
+            log.exception("notifications: job event failed")
         self._broadcast({"type": "job", **ev})
 
     def broadcast_printers(self) -> None:
@@ -495,6 +508,7 @@ class Manager:
             await d.stop()
         self.status.pop(printer_id, None)
         self.cameras.forget(printer_id)
+        self.notifier.forget_printer(printer_id)
         ok = self.store.remove(printer_id)
         self.history.close_orphans({c.id for c in self.store.list()})   # its history is kept
         (config.THUMB_DIR / f"{printer_id}.png").unlink(missing_ok=True)
