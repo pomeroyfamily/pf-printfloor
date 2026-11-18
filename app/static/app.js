@@ -899,8 +899,9 @@ function nGrid(p) {
   const rowTools = (row, changed) => `<td class="nrow-tools">
       <button type="button" class="link-btn" data-nrow="${esc(row)}" data-set="all">All</button>
       <button type="button" class="link-btn" data-nrow="${esc(row)}" data-set="none">None</button>
-      ${changed ? `<button type="button" class="link-btn" data-nrow="${esc(row)}" data-set="reset">Reset</button>` : ""}</td>`;
-  return `<table class="ngrid">
+      <button type="button" class="link-btn${changed ? "" : " invisible"}" data-nrow="${esc(row)}" data-set="reset"${changed ? "" : ' tabindex="-1" aria-hidden="true"'}>Reset</button></td>`;
+  // fixed column widths, and Reset always takes its space: ticking a box never shifts the other columns
+  return `<table class="ngrid"><colgroup><col class="ngrid-name">${ev.map(() => '<col class="ngrid-ev">').join("")}<col class="ngrid-tools"></colgroup>
     <thead><tr><th></th>${ev.map((e) => `<th>${esc(NOTIFY_SHORT[e])}</th>`).join("")}<th></th></tr></thead>
     <tbody>
       <tr class="nall"><th scope="row">All printers</th>${ev.map((e) => nCell(p, "*", e)).join("")}${rowTools("*", Object.keys(p.all).length > 0)}</tr>
