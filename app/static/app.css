@@ -654,7 +654,7 @@ body[data-view="list"] .loc-head:first-child, body[data-view="list"] .lhead + .l
 
 .printer-help { margin: -4px 0 12px; }
 .printer-help a { color: var(--printing); font-weight: 600; }
-.help-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.help-foot { margin: 4px 0 14px; padding-top: 12px; border-top: 1px solid var(--line); }   /* last line of a window: room below it too */
 .help-foot a { color: var(--printing); font-weight: 600; }
 
 /* not connected to the server: what's on screen is old */
@@ -715,7 +715,11 @@ body.fit #liveBanner { position: fixed; top: 12px; left: 12px; z-index: 60; }
 .naddr { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .naddr span { flex: 1; min-width: 140px; font-family: ui-monospace, monospace; font-size: 13px; }
 .ngrid-wrap { overflow-x: auto; }
-.ngrid { border-collapse: collapse; width: 100%; font-size: 14px; }
+.ngrid { border-collapse: collapse; width: 100%; font-size: 14px; table-layout: fixed; min-width: 560px; }
+.ngrid .ngrid-ev { width: 76px; }
+.ngrid .ngrid-tools { width: 132px; }
+.ngrid th[scope=row] { overflow: hidden; text-overflow: ellipsis; }
+.nrow-tools .invisible { visibility: hidden; }
 .ngrid th, .ngrid td { padding: 4px 6px; text-align: center; border-bottom: 1px solid var(--line); }
 .ngrid th[scope=row] { text-align: left; font-weight: 600; white-space: nowrap; }
 .ngrid thead th { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -728,7 +732,8 @@ body.fit #liveBanner { position: fixed; top: 12px; left: 12px; z-index: 60; }
 .nrecent .bad { color: var(--fail); }
 @media (max-width: 640px) {
   .ngrid thead { display: none; }
-  .ngrid, .ngrid tbody, .ngrid tr { display: block; }
+  .ngrid, .ngrid tbody, .ngrid tr { display: block; min-width: 0; }
+  .ngrid colgroup { display: none; }
   .ngrid tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
   .ngrid th[scope=row] { display: block; border: 0; padding: 0 0 4px; }
   .ngrid td { display: inline-flex; align-items: center; gap: 4px; border: 0; padding: 2px 8px 2px 0; }
