@@ -296,3 +296,43 @@ def test_u1_pause_reason_from_exception():
     assert st.reason is None and not st.errors
     assert parse.exception_reason({"message": "", "code": 1}) is None
     assert parse.exception_reason({"message": "Nozzle clog", "index": None}) == "Nozzle clog"
+
+
+def _u1_driver():
+    cfg = PrinterConfig(id="k1", name="U1-2", driver="snapmaker.u1", host="127.0.0.1", settings={}, secrets={})
+    return get_driver("snapmaker.u1")(cfg, lambda s: None)
+
+
+def _step(d, state, exc=None, fname="Santa_PETG.gcode"):
+    from app.models import JobState as JS
+    ps = {"state": state, "filename": fname, "message": "", "exception": exc}
+    status = PrinterStatus(printer_id="k1", connection=ConnState.ONLINE,
+                           state={"printing": JS.PRINTING, "paused": JS.PAUSED, "cancelled": JS.CANCELLED}[state])
+    d._printer_stopped({"print_stats": ps}, status)
+    return status
+
+
+HOMING = {"id": 530, "index": 0, "code": 27, "message": "Corexy home is unstable", "level": 3}
+TANGLE = {"id": 501, "index": 1, "code": 12, "message": "Detect filament tangled", "level": 2}
+
+
+def test_u1_print_stopped_by_printer_is_failed_with_its_message():
+    """Real report (2026-11-23): homing failed at print start; U1 says state "cancelled" + exception."""
+    d = _u1_driver()
+    _step(d, "printing")
+    s = _step(d, "cancelled", HOMING)
+    assert s.state.value == "failed" and s.reason == "Stopped by the printer: Corexy home is unstable"
+    assert any(e.code == "u1_27" for e in s.errors)
+
+
+def test_u1_manual_cancel_stays_cancelled():
+    d = _u1_driver()
+    _step(d, "printing", TANGLE)                    # left over from an earlier print
+    assert _step(d, "cancelled", TANGLE).state.value == "cancelled"
+    d = _u1_driver()
+    _step(d, "printing")
+    _step(d, "paused", TANGLE)                      # this print paused for a tangle, was resumed ...
+    _step(d, "printing", TANGLE)
+    assert _step(d, "cancelled", TANGLE).state.value == "cancelled"   # ... and a person cancelled it later
+    d = _u1_driver()                                 # dashboard started after the print ended: not guessed
+    assert _step(d, "cancelled", HOMING).state.value == "cancelled"

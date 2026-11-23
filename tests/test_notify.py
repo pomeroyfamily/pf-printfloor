@@ -258,3 +258,21 @@ def test_restart_with_printer_off_is_not_offline_alert(monkeypatch):
     clock[0] += N.OFFLINE_GRACE_S + 1
     n2.check_offline()
     assert n2.sent == []
+
+
+def test_failed_alert_carries_the_printers_reason(tmp_path):
+    from app.store import PrinterStore
+    store = PrinterStore(tmp_path / "db.sqlite")
+    cfg = store.add("U1-2", "snapmaker.u1", "10.0.0.3", None)
+    m = Manager(store)
+    sent = []
+    m.notifier._enqueue = lambda title, body, urls, event, pid: sent.append((event, title, body))
+    m.notifier.save_person(None, "Danny", [{"url": NTFY}], {}, {}, {cfg.id})
+
+    def upd(state, reason=None):
+        asyncio.run(m._on_update(PrinterStatus(printer_id=cfg.id, connection=ConnState.ONLINE, state=state,
+                                               reason=reason, job=Job(name="Santa", file_name="Santa.gcode"))))
+    upd(JobState.PRINTING)
+    upd(JobState.FAILED, "Stopped by the printer: Corexy home is unstable")
+    assert sent and sent[-1][0] == "failed" and sent[-1][1] == "U1-2: Failed"
+    assert "Corexy home is unstable" in sent[-1][2]

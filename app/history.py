@@ -259,7 +259,10 @@ class History:
                 self._flush(cur)
         elif cur:
             result = END.get(st.state, "unknown")              # idle/unknown without an end state
-            events.append(self._close(cfg, cur, result, job.elapsed_s if sig == cur.sig else None))
+            ev = self._close(cfg, cur, result, job.elapsed_s if sig == cur.sig else None)
+            if st.reason and result in ("failed", "cancelled"):
+                ev["reason"] = st.reason
+            events.append(ev)
         return [e for e in events if e]
 
     def _start(self, cfg, key, sig, job, now) -> _Open:

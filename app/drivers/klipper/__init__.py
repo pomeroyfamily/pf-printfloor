@@ -16,6 +16,7 @@ from typing import Any, ClassVar, Optional
 from ... import config
 from ...errors import AuthFailed, DriverError, PrinterUnreachable
 from ...transports.http import HttpJson, quote
+from ...models import JobState, PrinterError
 from ..base import FieldSpec, PrinterBase
 from ..registry import register
 from . import parse
@@ -59,6 +60,9 @@ class KlipperPrinter(PrinterBase):
         self._http: Optional[HttpJson] = None
         self._static: Optional[dict] = None          # objects, sensors, fans, firmware, name
         self._meta_for: Optional[str] = None         # filename the cached metadata belongs to
+        self._job_file: Optional[str] = None          # print seen running (see _printer_stopped)
+        self._job_exc_base = None
+        self._pause_excs: set = set()
         self._meta: Optional[dict] = None
         self._thumb_key: Optional[str] = None
         self._thumb_url: Optional[str] = None
@@ -155,6 +159,7 @@ class KlipperPrinter(PrinterBase):
         status = parse.to_status(self.config.id, st, objects=static["objects"], sensors=static["sensors"],
                                  meta=meta, chamber_sensor=self.chamber_sensor, u1=self.u1_filament,
                                  firmware=static["firmware"])
+        self._printer_stopped(st, status)
         status.device_name = static.get("name") or self._fallback_name(static)
         status.booted_at = self._booted_at
         if isinstance(self._totals, dict) and isinstance(self._totals.get("total_print_time"), (int, float)):
@@ -168,6 +173,29 @@ class KlipperPrinter(PrinterBase):
             status.job.thumbnail_url = self._thumb_url
             status.job.thumbnail_source = "printer"
         await self._publish(status)
+
+    def _printer_stopped(self, st: dict, status) -> None:
+        """U1: a print the PRINTER stopped (e.g. "Corexy home is unstable" while homing) reports state "cancelled",
+        the same as one a person cancelled; only print_stats.exception tells them apart. It's that print's failure
+        when the exception is new since the print started and wasn't the reason for a pause (a pause exception
+        stays set after resuming, so a later manual cancel would otherwise look like a failure). Then the job is
+        Failed with the printer's message, so the card, history, success rate and notifications say so."""
+        ps = st.get("print_stats") or {}
+        exc = ps.get("exception") if isinstance(ps.get("exception"), dict) else None
+        eid = exc.get("id") if exc and parse.exception_reason(exc) else None
+        raw, fname = ps.get("state"), ps.get("filename") or None
+        if raw in ("printing", "paused"):
+            if fname != self._job_file:                       # a new print: what was there before isn't its fault
+                self._job_file, self._job_exc_base, self._pause_excs = fname, eid, set()
+            if raw == "paused" and eid is not None:
+                self._pause_excs.add(eid)
+        elif (raw == "cancelled" and fname and fname == self._job_file and eid is not None
+              and eid != self._job_exc_base and eid not in self._pause_excs):
+            why = parse.exception_reason(exc)
+            status.state = JobState.FAILED
+            status.reason = f"Stopped by the printer: {why}"
+            if not any(e.code == f"u1_{exc.get('code')}" for e in status.errors):
+                status.errors.append(PrinterError(code=f"u1_{exc.get('code')}", message=why))
 
     def _fallback_name(self, static: dict) -> Optional[str]:
         return static.get("hostname")
