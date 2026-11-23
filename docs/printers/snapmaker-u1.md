@@ -28,5 +28,9 @@ camera settings set the camera to **Internal**, save, then set it back to **Paxx
 - Polled every 3 seconds. Shows Offline about 10 seconds after it disappears.
 - **Pause reasons** come from the printer (for example "Paused: filament tangled (Toolhead 2)") and are only shown
   while it's paused or in error, because the U1 can keep the message after resuming.
+- **Prints the printer stops itself** (for example "Corexy home is unstable" while homing at the start) are reported
+  by the U1 as *cancelled*, the same as one you cancel. The dashboard tells them apart by the printer's error and
+  shows them as **Failed: Stopped by the printer: …**, counts them as failed in the success rate, and sends the
+  Failed notification. Prints you cancel stay Cancelled.
 - **Name:** "Use the printer's name" follows Moonraker's device name, or the host name if there is none.
 - **Uptime:** real uptime from Moonraker, read every 5 minutes.

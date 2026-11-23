@@ -33,7 +33,9 @@ def exception_reason(exc: Any) -> Optional[str]:
         return None
     msg = re.sub(r"^(detect(ed)?|found)\s+", "", str(exc["message"]).strip(), flags=re.I).rstrip("!. ")
     idx = exc.get("index")
-    return msg + (f" (Toolhead {int(idx) + 1})" if isinstance(idx, int) and 0 <= idx < 16 else "")
+    # Only name a toolhead for toolhead problems: index is 0 on machine-wide ones too ("Corexy home is unstable")
+    per_tool = re.search(r"filament|nozzle|extru|tool|hotend|feed|tangl|clog|runout|spool", msg, re.I)
+    return msg + (f" (Toolhead {int(idx) + 1})" if per_tool and isinstance(idx, int) and 0 <= idx < 16 else "")
 
 
 def tool_index(name: str) -> Optional[int]:

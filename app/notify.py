@@ -282,7 +282,7 @@ class Notifier:
                 self.emit(pid, "finished", job=ev.get("job"), took=ev.get("print_seconds"),
                           note=None if result == "finished" else "ended")
             elif result in ("failed", "cancelled"):
-                self.emit(pid, "failed", job=ev.get("job"), took=ev.get("print_seconds"),
+                self.emit(pid, "failed", job=ev.get("job"), took=ev.get("print_seconds"), reason=ev.get("reason"),
                           note="was cancelled" if result == "cancelled" else None)
 
     def _remember(self, pid: str, **rec) -> None:
