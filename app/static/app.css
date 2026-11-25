@@ -753,7 +753,7 @@ body.fit #liveBanner { position: fixed; top: 12px; left: 12px; z-index: 60; }
   .nrow-tools .link-btn { margin: 0 10px 0 0; }
 }
 
-/* Claude connector */
+/* AI connector */
 .copy-row { display: flex; gap: 8px; }
 .copy-row input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
 #connectorBody code { font-size: 13px; }

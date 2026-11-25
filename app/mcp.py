@@ -1,12 +1,11 @@
-"""Read-only MCP server, so Claude (or any MCP client) can look at the dashboard.
+"""AI connector: a read-only MCP server, so Claude, ChatGPT or any other MCP client can look at the dashboard.
 
-Off until a token is created in Settings -> Claude connector. Then POST /mcp/<token> (secret URL), or POST /mcp with
+Off until a token is created in Settings -> AI connector (MCP). Then POST /mcp/<token> (secret URL), or POST /mcp with
 `Authorization: Bearer <token>` / `X-API-Key: <token>`, speaks MCP over Streamable HTTP, answered as plain JSON (no
 streaming, no sessions: every tool is a quick read).
 
 Read-only by design: nothing here can switch a plug, change a setting or talk to a printer. Printer addresses,
-serials, secrets and camera URLs are never included in answers (they would leave the house: a connector added in
-Claude is called from Anthropic's servers).
+serials, secrets and camera URLs are never included in answers (they would leave the house: AI apps call a connector from their own servers).
 """
 from __future__ import annotations
 

@@ -2472,8 +2472,8 @@ function renderAccount(step, msg, box = $("#accountBody"), onDone = null) {
   for (const n of ["email", "password"]) q(n).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
 }
 
-// ---------------------------------------------------------------- Claude connector (read-only MCP)
-const CONNECTOR_GUIDE = "https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/claude-connector.md";
+// ---------------------------------------------------------------- AI connector (read-only MCP)
+const CONNECTOR_GUIDE = "https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/ai-connector.md";
 const conn = { view: null, token: null, armed: null, msg: "" };
 function copyField(label, value, id) {
   return `<div class="field"><span id="${id}L">${esc(label)}</span>
@@ -2483,9 +2483,9 @@ function copyField(label, value, id) {
 function renderConnector() {
   const v = conn.view, box = $("#connectorBody");
   const base = `${location.origin}/mcp`;
-  const foot = `<p class="note help-foot">Adding it to Claude, and letting it past Cloudflare Access:
-    <a href="${CONNECTOR_GUIDE}" target="_blank" rel="noopener">Claude connector guide</a></p>`;
-  const intro = `<p class="note">Lets Claude look at this dashboard: printer status, job history, print stats and camera snapshots. Read-only: it can't switch plugs, change settings or control printers.</p>`;
+  const foot = `<p class="note help-foot">Adding it to Claude, ChatGPT and other AI apps, and letting it past Cloudflare Access:
+    <a href="${CONNECTOR_GUIDE}" target="_blank" rel="noopener">AI connector guide</a></p>`;
+  const intro = `<p class="note">Lets an AI assistant that supports MCP connectors (Claude, ChatGPT and others) look at this dashboard: printer status, job history, print stats and camera snapshots. Read-only: it can't switch plugs, change settings or control printers.</p>`;
   const err = conn.msg ? `<p class="form-error" role="alert">${esc(conn.msg)}</p>` : "";
   if (!v) { box.innerHTML = `${intro}<p class="note">Loading…</p>`; return; }
   if (!v.enabled) {
@@ -2498,9 +2498,9 @@ function renderConnector() {
   const main = conn.token
     ? `${copyField("Connector URL", `${base}/${conn.token}`, "connUrl")}
        <p class="note warn">Copy it now: the token in it isn't shown again. Lost it? Make a new token.</p>
-       <p class="note">In Claude: Plugins → Add → Add custom connector, and paste this URL. Anyone with the URL can see your printers, so treat it like a password.</p>
+       <p class="note">Add it as a custom connector (MCP server) in your AI app; the guide below has the steps for Claude, ChatGPT and others. Anyone with the URL can see your printers, so treat it like a password.</p>
        <details class="conn-alt"><summary>Using a request header instead</summary>
-         <p class="note">If Claude offers <b>Request headers</b> when you add the connector, you can keep the token out of the URL: use <code>${esc(base)}</code> as the URL and add the header <code>Authorization</code> with the value <code>Bearer</code> followed by a space and the token.</p>
+         <p class="note">If your AI app lets you set <b>request headers</b> for the connector, you can keep the token out of the URL: use <code>${esc(base)}</code> as the URL and add the header <code>Authorization</code> with the value <code>Bearer</code> followed by a space and the token.</p>
          ${copyField("Token", conn.token, "connToken")}
        </details>`
     : kv([["Connector URL", `<code>${esc(base)}/…${esc(v.hint)}</code>`],

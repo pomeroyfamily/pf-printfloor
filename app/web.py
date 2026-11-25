@@ -649,7 +649,7 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         return StreamingResponse(stream(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-    # ------------------------------------------------------------------ Claude connector (read-only MCP)
+    # ------------------------------------------------------------------ AI connector (read-only MCP)
     @app.get("/api/connector")
     async def connector_get(request: Request):
         return request.app.state.connector.view()
@@ -672,7 +672,7 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
     async def mcp_endpoint(request: Request, path_token: Optional[str] = None):
         c = request.app.state.connector
         if not c.enabled:
-            raise HTTPException(404, "The Claude connector is off. Turn it on in Settings.")
+            raise HTTPException(404, "The AI connector is off. Turn it on in Settings.")
         if c.throttled():
             return JSONResponse({"detail": "too many wrong tokens, try again in a minute"}, status_code=429,
                                 headers={"Retry-After": "60"})
