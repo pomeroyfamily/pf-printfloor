@@ -633,6 +633,7 @@ function renderSummary() {                                          // card visi
   none.hidden = !(state.printers.length && !visible);
   renderFilters();
   renderGroupBtn();
+  renderBarSum();
   if (wall && wall.on) renderWall();
 }
 
@@ -730,6 +731,29 @@ function setupFilters() {
   $("#grid").addEventListener("click", (e) => { const b = e.target.closest("[data-col-sort]"); if (b) setSort(b.dataset.colSort); });
   renderSortSeg();
   document.body.dataset.sort = state.sort;
+}
+
+// ---------------------------------------------------------------- fold the toolbar (remembered in this browser)
+function setBar(min) {
+  document.body.dataset.bar = min ? "min" : "";
+  const b = $("#barToggle");
+  b.setAttribute("aria-expanded", String(!min));
+  b.title = min ? "Show the toolbar" : "Hide the toolbar";
+  b.setAttribute("aria-label", b.title);
+  try { localStorage.setItem("bar", min ? "min" : ""); } catch { /* ignore */ }
+  renderBarSum();
+}
+function renderBarSum() {          // folded: say what's still in effect, so a filtered screen isn't a surprise
+  const n = activeFilters().length;
+  const g = GROUP_BYS.find((x) => x[0] === state.groupBy);
+  $("#barSum").textContent = [n ? `Filters (${n})` : "", grouped() ? `Group: ${g[1]}` : ""].filter(Boolean).join(" · ");
+}
+function setupBar() {
+  let min = false;
+  try { min = localStorage.getItem("bar") === "min"; } catch { /* ignore */ }
+  setBar(min);
+  $("#barToggle").addEventListener("click", () => setBar(document.body.dataset.bar !== "min"));
+  $("#barSum").addEventListener("click", () => setBar(false));
 }
 
 // ---------------------------------------------------------------- Group: one lane per status / maker / model / location
@@ -2820,6 +2844,7 @@ applyView();
 loadFilter();
 setupFilters();
 setupGroup();
+setupBar();
 setupLayoutDlg();
 setupTags();
 setupNotify();

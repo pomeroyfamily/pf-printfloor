@@ -231,6 +231,8 @@ Everything else is configured in the app (gear menu):
   title and count; click the title to fold it (remembered per browser, per kind of grouping). Grouped by status,
   printers move lanes on their own as their status changes. Sorting and dragging cards work within a lane; move
   a printer to another location in Details.
+- **Fold the toolbar**: the small arrow at the top right hides the buttons for more room (remembered per browser);
+  while folded it shows which filters and grouping are still on.
 - **Cameras** button: camera wall; it follows the current filters and lanes.
   - **Fit to screen** (on the wall): the cameras you choose fill the whole screen in the best rows and columns for
     their count, with name and progress on each, for a TV at a show. **Choose cameras** picks them (remembered

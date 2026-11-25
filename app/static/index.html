@@ -21,10 +21,14 @@
 </head>
 <body>
 <header class="top">
-  <button type="button" class="live-read" id="liveRead" title="Double-click to reload"><i aria-hidden="true"></i><span id="liveText">Connecting…</span></button>
+  <div class="top-corner">
+    <span class="bar-sum" id="barSum"></span>
+    <button type="button" class="bar-toggle" id="barToggle" aria-expanded="true" aria-controls="topTools topActions" title="Hide the toolbar"><i class="chev" aria-hidden="true"></i></button>
+    <button type="button" class="live-read" id="liveRead" title="Double-click to reload"><i aria-hidden="true"></i><span id="liveText">Connecting…</span></button>
+  </div>
   <div class="top-title">
     <h1 id="dashName">PF PrintFloor</h1>
-    <div class="tools">
+    <div class="tools" id="topTools">
       <div class="menu-wrap">
         <button type="button" class="btn ghost tool-btn" id="filtersBtn" aria-haspopup="true" aria-expanded="false" aria-controls="filtersPop">Filters</button>
         <div class="menu pop" id="filtersPop" hidden></div>
@@ -44,7 +48,7 @@
       <span class="group-chips" id="filterChips"></span>
     </div>
   </div>
-  <div class="top-actions">
+  <div class="top-actions" id="topActions">
     <button type="button" class="wall-btn" id="wallBtn" aria-pressed="false" title="Camera wall"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg><span>Cameras</span></button>
     <div class="seg" role="group" aria-label="Card size">
       <button type="button" data-view="full" aria-pressed="true">Full</button>
