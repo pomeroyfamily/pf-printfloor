@@ -1,4 +1,4 @@
-"""Claude connector: read-only MCP endpoint at /mcp."""
+"""AI connector: read-only MCP endpoint at /mcp."""
 import pytest
 from fastapi.testclient import TestClient
 
