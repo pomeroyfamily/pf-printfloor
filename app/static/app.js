@@ -2479,6 +2479,7 @@ let liveES = null, liveLast = 0, liveDataAt = 0, liveOk = true;
 // mistaken for live status.
 function setLive(ok) {
   liveOk = ok;
+  renderLiveRead();
   document.body.classList.toggle("stale", !ok);
   $("#liveBanner").hidden = ok;
   if (!ok) {
@@ -2490,29 +2491,62 @@ function setLive(ok) {
 function reconnect() { if (liveES) liveES.close(); connect(); }
 setInterval(() => {               // a stream that went quiet (sleep, Wi-Fi drop, dropped by the server): start over
   if (liveES && Date.now() - liveLast > LIVE_SILENT_MS) { setLive(false); reconnect(); }
+  renderLiveRead();
 }, 5000);
+// Top-right readout: "Live" while connected, otherwise how old the screen is.
+function agoText(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
+}
+function renderLiveRead() {
+  const el = $("#liveRead");
+  el.classList.toggle("on", liveOk && !!liveDataAt);
+  el.classList.toggle("off", !liveOk);
+  $("#liveText").textContent = liveOk ? (liveDataAt ? "Live" : "Connecting…") : (liveDataAt ? `Updated ${agoText(Date.now() - liveDataAt)}` : "Not connected");
+}
+$("#liveRead").addEventListener("dblclick", () => location.reload());
+$("#liveRead").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); location.reload(); } });
+// Back after a while: the stream may be dead. Fetch the current status now rather than waiting for the reconnect,
+// so the screen is right within one request. Grey out only if the server can't be reached.
+let catchingUp = false;
+async function catchUp() {
+  if (catchingUp) return;
+  catchingUp = true;
+  reconnect();
+  try {
+    const [printers, layout] = await Promise.all([api("GET", "/api/printers"), api("GET", "/api/layout")]);
+    applyPrinters(printers, layout);
+    liveDataAt = Date.now();
+    if (!liveOk) setLive(true);
+  } catch { setLive(false); }
+  finally { catchingUp = false; renderLiveRead(); }
+}
 addEventListener("offline", () => setLive(false));
-addEventListener("online", reconnect);
-addEventListener("pageshow", (e) => { if (e.persisted) { setLive(false); reconnect(); } });   // back/forward cache
+addEventListener("online", catchUp);
+addEventListener("pageshow", (e) => { if (e.persisted) catchUp(); });   // back/forward cache
 document.addEventListener("visibilitychange", () => {   // woke up / tab shown again after a while: check right away
-  if (document.visibilityState === "visible" && Date.now() - liveLast > 20000) { setLive(false); reconnect(); }
+  if (document.visibilityState === "visible" && Date.now() - liveLast > 20000) catchUp();
 });
+function applyPrinters(printers, layout) {
+  if (layout) { state.layout = layout; applyLayout(); }
+  state.printers = printers; renderAll();
+  if (!$("#addDlg").open) fillLocSelect();
+  loadTags();
+}
 function connect() {
   const es = new EventSource("/api/events");
   liveES = es; liveLast = Date.now();
   es.onopen = () => { liveLast = Date.now(); };
   es.onerror = () => setLive(false);
   es.onmessage = (m) => {
+    const first = !liveDataAt;
     liveLast = liveDataAt = Date.now();
-    if (!liveOk) setLive(true);
+    if (!liveOk) setLive(true); else if (first) renderLiveRead();
     const ev = JSON.parse(m.data);
     if (ev.type === "ping") return;
-    if (ev.type === "printers") {
-      if (ev.layout) { state.layout = ev.layout; applyLayout(); }
-      state.printers = ev.printers; renderAll();
-      if (!$("#addDlg").open) fillLocSelect();
-      loadTags();
-    }
+    if (ev.type === "printers") applyPrinters(ev.printers, ev.layout);
     else if (ev.type === "status") {
       const p = state.printers.find((x) => x.id === ev.id);
       if (!p) return;
