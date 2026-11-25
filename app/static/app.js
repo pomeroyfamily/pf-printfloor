@@ -5,7 +5,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const state = { printers: [], catalog: [], account: null, detailsId: null, view: "full", overlayId: null,
-                filter: new Set(), locs: new Set(), groupLoc: false, collapsed: new Set(),
+                filter: new Set(), locs: new Set(), groupBy: "none", collapsed: new Set(),
                 layout: { dashboard: { name: "PF PrintFloor", banner: true }, locations: { items: [], default: null } } };
 const VIEWS = ["full", "compact", "list"];
 
@@ -401,7 +401,6 @@ function renderCard(p, el) {
   el.dataset.conn = p.status?.connection || "connecting";
   el.dataset.power = p.power?.on === false ? "off" : p.power?.starting ? "starting" : "";
   el.setAttribute("aria-label", p.name);
-  el.dataset.loc = locOf(p);
   const html = compact ? compactHTML(p) : row ? rowHTML(p) : cardHTML(p);
   if (el.childNodes.length) morph(el, html); else el.innerHTML = html;
   return el;
@@ -470,26 +469,52 @@ function locOf(p) { return p.location || state.layout.locations.default; }
 function locName(id) { return locItems().find((l) => l.id === id)?.name || ""; }
 function locIndex(id) { const i = locItems().findIndex((l) => l.id === id); return i < 0 ? 999 : i; }
 function locMatch(p) { return !state.locs.size || state.locs.has(locOf(p)); }
-function folded(p) { return state.groupLoc && state.collapsed.has(locOf(p)); }
-// [[location or null, printers]]: one unnamed section when not grouped; else per location in the user's order
-function sections(list) {
-  if (!state.groupLoc) return [[null, list]];
-  return locItems().map((l) => [l, list.filter((p) => locOf(p) === l.id)]).filter(([, ps]) => ps.length);
+// ---------------------------------------------------------------- lanes (Group: None / Status / Maker / Model / Location)
+const GROUP_BYS = [["none", "None"], ["status", "Status"], ["maker", "Maker"], ["model", "Model"], ["location", "Location"]];
+const grouped = () => state.groupBy !== "none";
+function laneOf(p) {
+  switch (state.groupBy) {
+    case "status": return category(p);
+    case "maker": return p.maker || "Other";
+    case "model": return p.model || "Other";
+    case "location": return locOf(p);
+    default: return "";
+  }
 }
-function locHeadEl(box, l) {
-  let el = box.querySelector(`:scope > [data-loc-head="${CSS.escape(l.id)}"]`);
-  if (!el) { el = document.createElement("div"); el.className = "loc-head"; el.dataset.locHead = l.id; }
-  const open = !state.collapsed.has(l.id);
-  morph(el, `<button type="button" class="loc-toggle" data-loc-toggle aria-expanded="${open}" title="${open ? "Hide" : "Show"} the printers here"><i class="chev" aria-hidden="true"></i><span class="loc-name">${esc(l.name)}</span><span class="n"></span></button>`);
+// lanes in display order: [{id, name, color?}]
+function lanes() {
+  const byName = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+  switch (state.groupBy) {
+    case "status": return Object.keys(STATUS_RANK).sort((a, b) => STATUS_RANK[a] - STATUS_RANK[b])
+      .map((k) => { const f = FILTERS.find((x) => x[0] === k); return { id: k, name: f[1], color: f[2] }; });
+    case "maker": case "model": return [...new Set(state.printers.map(laneOf))].sort(byName).map((v) => ({ id: v, name: v }));
+    case "location": return locItems().map((l) => ({ id: l.id, name: l.name }));
+    default: return [];
+  }
+}
+const laneKey = (id) => `${state.groupBy}:${id}`;           // collapsed lanes are remembered per kind of grouping
+function folded(p) { return grouped() && state.collapsed.has(laneKey(laneOf(p))); }
+// [[lane or null, printers]]: one unnamed section when not grouped; else one per lane that has printers
+function sections(list) {
+  if (!grouped()) return [[null, list]];
+  return lanes().map((l) => [l, list.filter((p) => laneOf(p) === l.id)]).filter(([, ps]) => ps.length);
+}
+function laneHeadEl(box, l) {
+  const key = laneKey(l.id);
+  let el = box.querySelector(`:scope > [data-lane-head="${CSS.escape(key)}"]`);
+  if (!el) { el = document.createElement("div"); el.className = "loc-head"; el.dataset.laneHead = key; }
+  const open = !state.collapsed.has(key);
+  morph(el, `<button type="button" class="loc-toggle" data-lane-toggle aria-expanded="${open}" title="${open ? "Hide" : "Show"} these printers"><i class="chev" aria-hidden="true"></i>${l.color ? `<i class="lane-dot" style="background:${l.color}" aria-hidden="true"></i>` : ""}<span class="loc-name">${esc(l.name)}</span><span class="n"></span></button>`);
   return el;
 }
-function updateHeads(box) {                       // count of printers the filters let through; hide empty sections
+function updateHeads(box) {                       // count of printers the filters let through; hide empty lanes
   for (const h of box.querySelectorAll(":scope > .loc-head")) {
-    const n = state.printers.filter((p) => locOf(p) === h.dataset.locHead && shown(p) && (box.id !== "wallGrid" || p.camera?.kind)).length;
+    const n = state.printers.filter((p) => laneKey(laneOf(p)) === h.dataset.laneHead && shown(p) && (box.id !== "wallGrid" || p.camera?.kind)).length;
     h.querySelector(".n").textContent = String(n);
     if (h.hidden !== !n) h.hidden = !n;
   }
 }
+const samePeers = (p) => (grouped() ? state.printers.filter((x) => laneOf(x) === laneOf(p)) : state.printers);
 function placeNodes(box, nodes) {
   for (const el of [...box.children]) if (!nodes.includes(el)) el.remove();
   nodes.forEach((n, i) => { if (box.children[i] !== n) box.insertBefore(n, box.children[i] || null); });
@@ -520,9 +545,10 @@ function sortedPrinters() {
     list.sort((a, b) => (pr(a) == null) - (pr(b) == null) || dir * ((pr(a) ?? 0) - (pr(b) ?? 0)) || byName(a, b));
   } else if (state.sort === "location") list.sort((a, b) => dir * (locIndex(locOf(a)) - locIndex(locOf(b))) || byName(a, b));
   else if (state.sort === "status") list.sort((a, b) => dir * (STATUS_RANK[category(a)] - STATUS_RANK[category(b)]) || byName(a, b));
-  if (state.groupLoc) {                          // sections keep the sort inside them (stable sort)
+  if (grouped()) {                               // lanes keep the sort inside them (stable sort)
     const order = new Map(list.map((p, i) => [p.id, i]));
-    list.sort((a, b) => locIndex(locOf(a)) - locIndex(locOf(b)) || order.get(a.id) - order.get(b.id));
+    const at = new Map(lanes().map((l, i) => [l.id, i]));
+    list.sort((a, b) => (at.get(laneOf(a)) ?? 999) - (at.get(laneOf(b)) ?? 999) || order.get(a.id) - order.get(b.id));
   }
   return list;
 }
@@ -552,13 +578,13 @@ function applyOrder() {
   const grid = $("#grid");
   const nodes = state.view === "list" && state.printers.length ? [listHeadEl(grid)] : [];
   for (const [l, ps] of sections(sortedPrinters())) {
-    if (l) nodes.push(locHeadEl(grid, l));
+    if (l) nodes.push(laneHeadEl(grid, l));
     for (const p of ps) { const el = grid.querySelector(`:scope > [data-id="${CSS.escape(p.id)}"]`); if (el) nodes.push(el); }
   }
   placeNodes(grid, nodes);
   updateHeads(grid);
   document.body.dataset.sort = state.sort;
-  document.body.dataset.groupLoc = state.groupLoc ? "1" : "";
+  document.body.dataset.groupBy = state.groupBy;
   if (wall && wall.on) renderWall();
 }
 
@@ -570,8 +596,15 @@ function loadFilter() {
   catch (_) { state.sort = "manual"; }
   try { state.sortDir = localStorage.getItem("sortDir") === "desc" ? "desc" : "asc"; } catch (_) { state.sortDir = "asc"; }
   try { state.locs = new Set(JSON.parse(localStorage.getItem("locs") || "[]")); } catch (_) { state.locs = new Set(); }
-  try { state.collapsed = new Set(JSON.parse(localStorage.getItem("collapsedLocs") || "[]")); } catch (_) { state.collapsed = new Set(); }
-  try { state.groupLoc = localStorage.getItem("groupLoc") === "1"; } catch (_) { state.groupLoc = false; }
+  try {
+    const g = localStorage.getItem("groupBy");
+    state.groupBy = GROUP_BYS.some((x) => x[0] === g) ? g : localStorage.getItem("groupLoc") === "1" ? "location" : "none";
+  } catch (_) { state.groupBy = "none"; }
+  try {
+    const lanesSaved = localStorage.getItem("collapsedLanes");
+    state.collapsed = new Set(lanesSaved != null ? JSON.parse(lanesSaved)
+      : JSON.parse(localStorage.getItem("collapsedLocs") || "[]").map((id) => `location:${id}`));   // from before lanes
+  } catch (_) { state.collapsed = new Set(); }
 }
 function saveFilter() {
   try {
@@ -580,23 +613,13 @@ function saveFilter() {
     localStorage.setItem("sort", state.sort);
     localStorage.setItem("sortDir", state.sortDir);
     localStorage.setItem("locs", JSON.stringify([...state.locs]));
-    localStorage.setItem("collapsedLocs", JSON.stringify([...state.collapsed]));
-    localStorage.setItem("groupLoc", state.groupLoc ? "1" : "0");
+    localStorage.setItem("collapsedLanes", JSON.stringify([...state.collapsed]));
+    localStorage.setItem("groupBy", state.groupBy);
   } catch (_) { /* ignore */ }
 }
 
-function renderSummary() {                                          // filter chips + card visibility
-  const counts = {};
-  for (const p of state.printers) counts[category(p)] = (counts[category(p)] || 0) + 1;
-  const chip = (key, label, color, n, on) =>
-    `<button type="button" class="chip" data-filter="${key}" aria-pressed="${on}">${color ? `<i style="background:${color}"></i>` : ""}${esc(label)} <span class="n">${n}</span></button>`;
-  const anyCycle = state.printers.some((p) => p.autocycle?.enabled);
-  if (!anyCycle) state.filter.delete("cycle");
-  const html = chip("all", "All", "", state.printers.length, !state.filter.size)
-    + FILTERS.map(([k, label, c]) => chip(k, label, c, counts[k] || 0, state.filter.has(k))).join("")
-    + (anyCycle ? chip("cycle", "Power cycle", "var(--paused)", state.printers.filter(inCycle).length, state.filter.has("cycle")) : "");
-  const box = $("#summary");
-  if (box.childNodes.length) morph(box, html); else box.innerHTML = html;
+function renderSummary() {                                          // card visibility + Filters / Group buttons
+  if (!state.printers.some((p) => p.autocycle?.enabled)) state.filter.delete("cycle");
   let visible = 0;
   for (const p of state.printers) {
     const el = $(`#grid [data-id="${CSS.escape(p.id)}"]`);
@@ -608,63 +631,100 @@ function renderSummary() {                                          // filter ch
   updateHeads($("#grid"));
   const none = $("#noMatch");
   none.hidden = !(state.printers.length && !visible);
-  renderGroups();
-  renderLocs();
+  renderFilters();
+  renderGroupBtn();
   if (wall && wall.on) renderWall();
 }
 
-function renderGroups() {
-  // drop selections whose group no longer exists (tag deleted, printer removed)
+// ---------------------------------------------------------------- Filters: status, location, maker, model, tags
+// Within one section any pick matches; across sections all must match. Remembered in this browser.
+const STATUS_LABEL = Object.fromEntries([...FILTERS.map((f) => [f[0], f[1]]), ["cycle", "Power cycle"]]);
+const STATUS_COLOR = Object.fromEntries([...FILTERS.map((f) => [f[0], f[2]]), ["cycle", "var(--paused)"]]);
+function activeFilters() {               // [[key, label, color?]] for the chips
+  return [...[...state.filter].map((k) => [`status:${k}`, STATUS_LABEL[k], STATUS_COLOR[k]]),
+    ...[...state.locs].map((k) => [`loc:${k}`, locName(k)]),
+    ...[...state.groups].map((k) => [`grp:${k}`, groupLabel(k)])];
+}
+function renderFilters() {
+  // drop picks that no longer exist (tag deleted, printer removed, location deleted)
   const all = new Set(state.printers.flatMap(groupKeys));
   for (const k of [...state.groups]) if (!all.has(k)) state.groups.delete(k);
-  const chips = [...state.groups].map((k) =>
-    `<button type="button" class="chip" aria-pressed="true" data-ungroup="${esc(k)}" title="Remove this group filter">${esc(groupLabel(k))} <span class="n">✕</span></button>`).join("");
-  const gc = $("#groupChips");
-  if (gc.childNodes.length) morph(gc, chips); else gc.innerHTML = chips;
-  $("#groupsBtn").textContent = state.groups.size ? `Groups (${state.groups.size})` : "Groups";
-  if (!$("#groupsPop").hidden) renderGroupsPop();
+  const ids = new Set(locItems().map((l) => l.id));
+  for (const k of [...state.locs]) if (!ids.has(k)) state.locs.delete(k);
+  const act = activeFilters();
+  const chips = act.map(([k, label, color]) =>
+    `<button type="button" class="chip" aria-pressed="true" data-unfilter="${esc(k)}" title="Remove this filter">${color ? `<i style="background:${color}"></i>` : ""}${esc(label)} <span class="n">✕</span></button>`).join("")
+    + (act.length > 1 ? `<button type="button" class="link-btn chip-clear" data-filters-clear>Clear all</button>` : "");
+  const fc = $("#filterChips");
+  if (fc.childNodes.length) morph(fc, chips); else fc.innerHTML = chips;
+  $("#filtersBtn").textContent = act.length ? `Filters (${act.length})` : "Filters";
+  if (!$("#filtersPop").hidden) renderFiltersPop();
 }
-
-function renderGroupsPop() {
+function renderFiltersPop() {
+  const n = (f) => state.printers.filter(f).length;
+  const box = (attr, key, on, label, count, color) => `<label class="check"><input type="checkbox" ${attr}="${esc(key)}" ${on ? "checked" : ""}>
+      <span>${color ? `<i class="lane-dot" style="background:${color}"></i>` : ""}${esc(label)}</span><span class="n">${count}</span></label>`;
+  const sec = (title, items, empty = "") => `<div class="pop-sec"><h4>${title}</h4>${items || `<p class="muted pop-empty">${empty}</p>`}</div>`;
+  const statuses = [...FILTERS.map((f) => f[0]), ...(state.printers.some((p) => p.autocycle?.enabled) ? ["cycle"] : [])];
+  const status = statuses.map((k) => box("data-fstatus", k, state.filter.has(k), STATUS_LABEL[k],
+    n((p) => (k === "cycle" ? inCycle(p) : category(p) === k)), STATUS_COLOR[k])).join("");
   const counts = {};
   for (const p of state.printers) for (const k of new Set(groupKeys(p))) counts[k] = (counts[k] || 0) + 1;
-  const section = (kind, title, empty) => {
-    const keys = Object.keys(counts).filter((k) => k.startsWith(kind + ":"))
-      .sort((a, b) => groupLabel(a).localeCompare(groupLabel(b), undefined, { numeric: true }));
-    const items = keys.map((k) => `<label class="check"><input type="checkbox" data-group="${esc(k)}" ${state.groups.has(k) ? "checked" : ""}>
-        <span>${esc(groupLabel(k))}</span><span class="n">${counts[k]}</span></label>`).join("");
-    return `<div class="pop-sec"><h4>${title}</h4>${items || `<p class="muted pop-empty">${empty}</p>`}</div>`;
-  };
-  const html = section("tag", "Tags", "No tags yet. Add them in a printer's Details.")
-    + section("maker", "Maker", "") + section("model", "Model", "")
-    + (state.groups.size ? `<button type="button" class="link-btn" data-groups-clear>Clear groups</button>` : "");
-  const pop = $("#groupsPop");
+  const grp = (kind) => Object.keys(counts).filter((k) => k.startsWith(kind + ":"))
+    .sort((a, b) => groupLabel(a).localeCompare(groupLabel(b), undefined, { numeric: true }))
+    .map((k) => box("data-group", k, state.groups.has(k), groupLabel(k), counts[k])).join("");
+  const locs = locItems().length > 1
+    ? sec("Location", locItems().map((l) => box("data-loc", l.id, state.locs.has(l.id), l.name, n((p) => locOf(p) === l.id))).join("")) : "";
+  const html = sec("Status", status) + locs + sec("Maker", grp("maker")) + sec("Model", grp("model"))
+    + sec("Tags", grp("tag"), "No tags yet. Add them in a printer's Details.")
+    + `<div class="pop-foot">${activeFilters().length ? `<button type="button" class="link-btn" data-filters-clear>Clear all</button>` : ""}
+       <button type="button" class="link-btn" data-manage-locs>Manage locations…</button></div>`;
+  const pop = $("#filtersPop");
   if (pop.childNodes.length) morph(pop, html); else pop.innerHTML = html;
+  syncChecks(pop);
 }
-
-function setGroupsPop(open) {
-  $("#groupsPop").hidden = !open;
-  $("#groupsBtn").setAttribute("aria-expanded", String(open));
-  if (open) renderGroupsPop();
+// morph() copies attributes, but a checkbox's ticked state is a property: set it from the markup
+function syncChecks(box) { for (const i of box.querySelectorAll("input[type=checkbox], input[type=radio]")) i.checked = i.hasAttribute("checked"); }
+function clearFilters() { state.filter.clear(); state.groups.clear(); state.locs.clear(); saveFilter(); renderSummary(); }
+function setFiltersPop(open) {
+  if (open) setGroupPop(false);
+  $("#filtersPop").hidden = !open;
+  $("#filtersBtn").setAttribute("aria-expanded", String(open));
+  if (open) renderFiltersPop();
 }
-
-function setupGroups() {
-  $("#groupsBtn").addEventListener("click", () => setGroupsPop($("#groupsPop").hidden));
-  $("#groupsPop").addEventListener("change", (e) => {
-    const c = e.target.closest("[data-group]");
-    if (!c) return;
-    if (c.checked) state.groups.add(c.dataset.group); else state.groups.delete(c.dataset.group);
+function setupFilters() {
+  $("#filtersBtn").addEventListener("click", () => setFiltersPop($("#filtersPop").hidden));
+  $("#filtersPop").addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.dataset.fstatus) {
+      if (t.checked) state.filter.add(t.dataset.fstatus); else state.filter.delete(t.dataset.fstatus);
+      if (FILTERS.every((f) => state.filter.has(f[0]))) for (const f of FILTERS) state.filter.delete(f[0]);   // every status = any
+    } else if (t.dataset.loc) {
+      if (t.checked) state.locs.add(t.dataset.loc); else state.locs.delete(t.dataset.loc);
+      if (state.locs.size === locItems().length) state.locs.clear();                                       // every location = any
+    } else if (t.dataset.group) {
+      if (t.checked) state.groups.add(t.dataset.group); else state.groups.delete(t.dataset.group);
+    } else return;
     saveFilter(); renderSummary();
   });
-  $("#groupsPop").addEventListener("click", (e) => {
-    if (e.target.closest("[data-groups-clear]")) { state.groups.clear(); saveFilter(); renderSummary(); }
+  $("#filtersPop").addEventListener("click", (e) => {
+    if (e.target.closest("[data-filters-clear]")) clearFilters();
+    if (e.target.closest("[data-manage-locs]")) { setFiltersPop(false); openLayoutDlg(); }
   });
-  $("#groupsPop").addEventListener("keydown", (e) => { if (e.key === "Escape") { setGroupsPop(false); $("#groupsBtn").focus(); } });
-  $("#groupChips").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-ungroup]");
-    if (b) { state.groups.delete(b.dataset.ungroup); saveFilter(); renderSummary(); }
+  $("#filtersPop").addEventListener("keydown", (e) => { if (e.key === "Escape") { setFiltersPop(false); $("#filtersBtn").focus(); } });
+  $("#filterChips").addEventListener("click", (e) => {
+    if (e.target.closest("[data-filters-clear]")) { clearFilters(); return; }
+    const b = e.target.closest("[data-unfilter]");
+    if (!b) return;
+    const k = b.dataset.unfilter, kind = k.slice(0, k.indexOf(":")), val = k.slice(k.indexOf(":") + 1);
+    ({ status: state.filter, loc: state.locs, grp: state.groups })[kind]?.delete(val);
+    saveFilter(); renderSummary();
   });
-  document.addEventListener("click", (e) => { if (!e.target.closest("#groupsPop, #groupsBtn")) setGroupsPop(false); });
+  $("#noMatch").addEventListener("click", (e) => { if (e.target.closest("[data-filter-all]")) clearFilters(); });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#filtersPop, #filtersBtn")) setFiltersPop(false);
+    if (!e.target.closest("#groupPop, #groupBtn")) setGroupPop(false);
+  });
   // Click a sort: ascending. Click the same one again: reversed. Switching to another sort starts ascending again.
   $("#sortSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-sort]"); if (b) setSort(b.dataset.sort); });
   $("#grid").addEventListener("click", (e) => { const b = e.target.closest("[data-col-sort]"); if (b) setSort(b.dataset.colSort); });
@@ -672,61 +732,40 @@ function setupGroups() {
   document.body.dataset.sort = state.sort;
 }
 
-// Locations button: same dropdown as Groups - pick locations to show (none = all), plus Group by location.
-function renderLocs() {
-  const ids = new Set(locItems().map((l) => l.id));
-  for (const k of [...state.locs]) if (!ids.has(k)) state.locs.delete(k);      // location deleted
-  const chips = [...state.locs].map((k) =>
-    `<button type="button" class="chip" aria-pressed="true" data-unloc="${esc(k)}" title="Remove this location filter">${esc(locName(k))} <span class="n">✕</span></button>`).join("");
-  const lc = $("#locChips");
-  if (lc.childNodes.length) morph(lc, chips); else lc.innerHTML = chips;
-  $("#locBtn").textContent = state.locs.size ? `Locations (${state.locs.size})` : "Locations";
-  if (!$("#locPop").hidden) renderLocPop();
+// ---------------------------------------------------------------- Group: one lane per status / maker / model / location
+function renderGroupBtn() {
+  const g = GROUP_BYS.find((x) => x[0] === state.groupBy);
+  $("#groupBtn").textContent = grouped() ? `Group: ${g[1]}` : "Group";
+  if (!$("#groupPop").hidden) renderGroupPop();
 }
-function renderLocPop() {
-  const counts = {};
-  for (const p of state.printers) counts[locOf(p)] = (counts[locOf(p)] || 0) + 1;
-  const items = locItems().map((l) => `<label class="check"><input type="checkbox" data-loc="${esc(l.id)}" ${state.locs.has(l.id) ? "checked" : ""}>
-      <span>${esc(l.name)}</span><span class="n">${counts[l.id] || 0}</span></label>`).join("");
-  const html = `<div class="pop-sec"><label class="check toggle-row"><input type="checkbox" class="toggle" data-loc-group ${state.groupLoc ? "checked" : ""}>
-      <span>Group by location</span></label></div>
-    <div class="pop-sec"><h4>Show</h4>${items}</div>
-    ${state.locs.size ? `<button type="button" class="link-btn" data-locs-clear>Show all locations</button>` : ""}
-    <button type="button" class="link-btn" data-manage-locs>Manage locations…</button>`;
-  const pop = $("#locPop");
+function renderGroupPop() {
+  const html = `<div class="pop-sec" role="radiogroup" aria-label="Group printers by">` + GROUP_BYS.map(([k, label]) =>
+    `<label class="check radio"><input type="radio" name="groupBy" value="${k}" ${state.groupBy === k ? "checked" : ""}><span>${label}</span></label>`).join("")
+    + `</div>`;
+  const pop = $("#groupPop");
   if (pop.childNodes.length) morph(pop, html); else pop.innerHTML = html;
+  syncChecks(pop);
 }
-function setLocPop(open) {
-  $("#locPop").hidden = !open;
-  $("#locBtn").setAttribute("aria-expanded", String(open));
-  if (open) renderLocPop();
+function setGroupPop(open) {
+  if (open) setFiltersPop(false);
+  $("#groupPop").hidden = !open;
+  $("#groupBtn").setAttribute("aria-expanded", String(open));
+  if (open) renderGroupPop();
 }
 function regroup() { saveFilter(); applyOrder(); renderSummary(); if (state.detailsId) renderDetails(); }
-function setupLocs() {
-  $("#locBtn").addEventListener("click", () => setLocPop($("#locPop").hidden));
-  $("#locPop").addEventListener("change", (e) => {
-    if (e.target.closest("[data-loc-group]")) { state.groupLoc = e.target.checked; regroup(); return; }
-    const c = e.target.closest("[data-loc]");
-    if (!c) return;
-    if (c.checked) state.locs.add(c.dataset.loc); else state.locs.delete(c.dataset.loc);
-    if (state.locs.size === locItems().length) state.locs.clear();               // everything picked = all
-    saveFilter(); renderSummary();
+function setupGroup() {
+  $("#groupBtn").addEventListener("click", () => setGroupPop($("#groupPop").hidden));
+  $("#groupPop").addEventListener("change", (e) => {
+    if (e.target.name !== "groupBy") return;
+    state.groupBy = e.target.value;
+    regroup();
   });
-  $("#locPop").addEventListener("click", (e) => {
-    if (e.target.closest("[data-locs-clear]")) { state.locs.clear(); saveFilter(); renderSummary(); }
-    if (e.target.closest("[data-manage-locs]")) { setLocPop(false); openLayoutDlg(); }
-  });
-  $("#locPop").addEventListener("keydown", (e) => { if (e.key === "Escape") { setLocPop(false); $("#locBtn").focus(); } });
-  $("#locChips").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-unloc]");
-    if (b) { state.locs.delete(b.dataset.unloc); saveFilter(); renderSummary(); }
-  });
-  document.addEventListener("click", (e) => { if (!e.target.closest("#locPop, #locBtn")) setLocPop(false); });
-  for (const box of [$("#grid"), $("#wallGrid")]) box.addEventListener("click", (e) => {      // fold a section
-    const t = e.target.closest("[data-loc-toggle]");
+  $("#groupPop").addEventListener("keydown", (e) => { if (e.key === "Escape") { setGroupPop(false); $("#groupBtn").focus(); } });
+  for (const box of [$("#grid"), $("#wallGrid")]) box.addEventListener("click", (e) => {      // fold a lane
+    const t = e.target.closest("[data-lane-toggle]");
     if (!t) return;
-    const id = t.closest(".loc-head").dataset.locHead;
-    if (state.collapsed.has(id)) state.collapsed.delete(id); else state.collapsed.add(id);
+    const key = t.closest(".loc-head").dataset.laneHead;
+    if (state.collapsed.has(key)) state.collapsed.delete(key); else state.collapsed.add(key);
     regroup();
   });
 }
@@ -826,24 +865,6 @@ function setupLayoutDlg() {
       applyLayout(); renderAll();
       $("#layoutDlg").close();
     } catch (ex) { err.textContent = ex.message; }
-  });
-}
-
-function setupFilter() {
-  $("#summary").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-filter]");
-    if (!b) return;
-    const k = b.dataset.filter;
-    if (k === "all") state.filter.clear();
-    else if (state.filter.has(k)) state.filter.delete(k);
-    else state.filter.add(k);
-    if (FILTERS.every((f) => state.filter.has(f[0]))) state.filter.clear();   // every status picked = All
-    saveFilter();
-    renderSummary();
-  });
-  $("#noMatch").addEventListener("click", (e) => {
-    if (!e.target.closest("[data-filter-all]")) return;
-    state.filter.clear(); state.groups.clear(); state.locs.clear(); saveFilter(); renderSummary();
   });
 }
 
@@ -1638,7 +1659,7 @@ function renderWall() {
   const grid = $("#wallGrid");
   const nodes = [];
   for (const [l, list] of (wall.fit ? [[null, withCam]] : sections(withCam))) {
-    if (l) nodes.push(locHeadEl(grid, l));
+    if (l) nodes.push(laneHeadEl(grid, l));
     for (const p of list) {
       let el = grid.querySelector(`:scope > [data-id="${CSS.escape(p.id)}"]`);
       if (!el) {
@@ -1804,7 +1825,7 @@ function renderDetails() {
         </li>`).join("")}</ul>
     </div>`).join("");
 
-  const peers = state.groupLoc ? state.printers.filter((x) => locOf(x) === locOf(p)) : state.printers;   // Move earlier/later stays inside the location
+  const peers = samePeers(p);                                       // Move earlier/later stays inside the lane
   const idx = peers.indexOf(p);
   const secretFields = (p.fields || []).filter((f) => f.kind === "secret");
 
@@ -2002,7 +2023,7 @@ function setupDetailsActions() {
     const mv = e.target.closest("[data-move]");
     if (mv) {
       const ids = state.printers.map((x) => x.id);
-      const peers = (state.groupLoc ? state.printers.filter((x) => locOf(x) === locOf(p)) : state.printers).map((x) => x.id);
+      const peers = samePeers(p).map((x) => x.id);
       const k = peers.indexOf(p.id), other = peers[k + Number(mv.dataset.move)];
       if (!other) return;
       const i = ids.indexOf(p.id), j = ids.indexOf(other);
@@ -2060,10 +2081,11 @@ function setupDrag() {
     e.dataTransfer.setData("text/plain", dragId);
   });
   const clear = () => grid.querySelectorAll(".drop-before,.drop-after").forEach((c) => c.classList.remove("drop-before", "drop-after"));
-  const sameSection = (card) => !state.groupLoc || card.dataset.loc === grid.querySelector(`:scope > [data-id="${CSS.escape(dragId)}"]`)?.dataset.loc;
+  const byId = (id) => state.printers.find((x) => x.id === id);
+  const sameSection = (card) => !grouped() || (byId(card.dataset.id) && byId(dragId) && laneOf(byId(card.dataset.id)) === laneOf(byId(dragId)));
   grid.addEventListener("dragover", (e) => {
     const card = e.target.closest(".card");
-    if (!dragId || !card || card.dataset.id === dragId || !sameSection(card)) return;   // moving between locations: Details only
+    if (!dragId || !card || card.dataset.id === dragId || !sameSection(card)) return;   // drag only within a lane
     e.preventDefault();
     const r = card.getBoundingClientRect();
     const after = state.view === "list" ? e.clientY > r.top + r.height / 2 : e.clientX > r.left + r.width / 2;
@@ -2627,7 +2649,7 @@ function connect() {
       p.status = ev.status;
       const el = $(`#grid [data-id="${CSS.escape(p.id)}"]`);
       if (el && !el.classList.contains("dragging")) renderCard(p, el);
-      if (state.sort !== "manual") applyOrder();
+      if (state.sort !== "manual" || state.groupBy === "status") applyOrder();   // grouped by status: may change lane
       renderSummary();
       if (state.overlayId === p.id) overlayCard();
       if (state.detailsId === p.id && !$("#detailsBody").contains(document.activeElement)) renderDetails();
@@ -2796,9 +2818,8 @@ $("#themeSeg").addEventListener("click", (e) => {
 loadView();
 applyView();
 loadFilter();
-setupFilter();
-setupGroups();
-setupLocs();
+setupFilters();
+setupGroup();
 setupLayoutDlg();
 setupTags();
 setupNotify();

@@ -24,18 +24,15 @@
   <button type="button" class="live-read" id="liveRead" title="Double-click to reload"><i aria-hidden="true"></i><span id="liveText">Connecting…</span></button>
   <div class="top-title">
     <h1 id="dashName">PF PrintFloor</h1>
-    <div class="summary" id="summary" role="group" aria-label="Show printers by status"></div>
     <div class="tools">
       <div class="menu-wrap">
-        <button type="button" class="btn ghost tool-btn" id="groupsBtn" aria-haspopup="true" aria-expanded="false" aria-controls="groupsPop">Groups</button>
-        <div class="menu pop" id="groupsPop" hidden></div>
+        <button type="button" class="btn ghost tool-btn" id="filtersBtn" aria-haspopup="true" aria-expanded="false" aria-controls="filtersPop">Filters</button>
+        <div class="menu pop" id="filtersPop" hidden></div>
       </div>
-      <span class="group-chips" id="groupChips"></span>
       <div class="menu-wrap">
-        <button type="button" class="btn ghost tool-btn" id="locBtn" aria-haspopup="true" aria-expanded="false" aria-controls="locPop">Locations</button>
-        <div class="menu pop" id="locPop" hidden></div>
+        <button type="button" class="btn ghost tool-btn" id="groupBtn" aria-haspopup="true" aria-expanded="false" aria-controls="groupPop">Group</button>
+        <div class="menu pop" id="groupPop" hidden></div>
       </div>
-      <span class="group-chips" id="locChips"></span>
       <div class="sort" role="group" aria-label="Sort cards"><span>Sort</span>
         <div class="sort-seg" id="sortSeg">
           <button type="button" data-sort="manual">My order</button>
@@ -44,6 +41,7 @@
           <button type="button" data-sort="status">Status<i class="arr" aria-hidden="true"></i></button>
         </div>
       </div>
+      <span class="group-chips" id="filterChips"></span>
     </div>
   </div>
   <div class="top-actions">
@@ -100,7 +98,7 @@
     <p class="muted cam-empty" hidden>None of the printers shown has a camera the dashboard can display yet.</p>
     <p class="muted cam-none"></p>
   </section>
-  <p class="no-match" id="noMatch" hidden>No printers match this filter. <button type="button" class="link-btn" data-filter-all>Show all</button></p>
+  <p class="no-match" id="noMatch" hidden>No printers match these filters. <button type="button" class="link-btn" data-filter-all>Clear filters</button></p>
   <section class="empty-state" id="empty" hidden>
     <h2>No printers yet</h2>
     <p>Add a printer to see its status here.</p>

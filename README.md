@@ -40,8 +40,9 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 - **Views**: Full cards, Compact cards and a List; all cards are always the same size.
 - **Sorting** by your own order (drag and drop), time left, name or status; in the list view, also by job,
   progress or location (click a column name; click again to reverse).
-- **Filters**: status chips, Groups (tags, maker, model) and Locations, combined.
-- **Locations**: name places (e.g. "Garage", "Second Shop"), filter by them, group the grid into sections.
+- **Filters**: status, location, maker, model and tags, combined ("finished Bambu Lab printers tagged Multi Color").
+- **Group**: split the dashboard into lanes by status, maker, model or location; fold any lane.
+- **Locations**: name places (e.g. "Garage", "Second Shop"), filter and group by them.
 - **Dashboard name** shown as a banner (can be hidden).
 - **Cameras**: per-card camera button, full-screen camera, a camera wall, and a **Fit to screen** show mode;
   external camera URL per printer.
@@ -223,10 +224,14 @@ Everything else is configured in the app (gear menu):
 - **Status label tooltip**: hover the "Paused" / "Failed" label to see why (useful in Compact view).
 - **Card bottom line** shows, most important first: "Last seen …" when offline, the automatic power cycle
   ("Reboot in 12 min", with pause / restart buttons), or uptime ("Up 3 d 4 h").
-- **Locations** button: pick locations to show, and switch **Group by location** on to split the grid into
-  sections (click a section header to fold it). Dragging cards works within a section; move a printer to another
-  location in Details.
-- **Cameras** button: camera wall; it follows the current filters and grouping.
+- **Filters** button: tick what to show under Status, Location, Maker, Model and Tags. Ticks in the same section
+  mean "any of these"; ticks in different sections must all match. What's picked shows as chips next to the
+  buttons (✕ removes one, **Clear all** removes them all). **Manage locations…** is at the bottom.
+- **Group** button: **None**, **Status**, **Maker**, **Model** or **Location**. Each group gets its own lane with a
+  title and count; click the title to fold it (remembered per browser, per kind of grouping). Grouped by status,
+  printers move lanes on their own as their status changes. Sorting and dragging cards work within a lane; move
+  a printer to another location in Details.
+- **Cameras** button: camera wall; it follows the current filters and lanes.
   - **Fit to screen** (on the wall): the cameras you choose fill the whole screen in the best rows and columns for
     their count, with name and progress on each, for a TV at a show. **Choose cameras** picks them (remembered
     per browser). The buttons and mouse pointer hide after 3 seconds; move the mouse or tap to bring them back.
