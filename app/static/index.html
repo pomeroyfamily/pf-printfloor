@@ -66,6 +66,7 @@
         <button type="button" role="menuitem" id="historyBtn">Job history</button>
         <button type="button" role="menuitem" id="plugsBtn">Govee plugs</button>
         <button type="button" role="menuitem" id="notifyBtn">Notifications</button>
+        <button type="button" role="menuitem" id="connectorBtn">Claude connector</button>
         <button type="button" role="menuitem" id="layoutBtn">Dashboard &amp; locations</button>
         <button type="button" role="menuitem" id="tagsBtn">Manage tags</button>
         <button type="button" role="menuitem" id="reloadBtn" hidden>Reload</button>
@@ -221,6 +222,14 @@
     <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
   </div>
   <div class="modal-body" id="notifyBody"></div>
+</dialog>
+
+<dialog class="modal" id="connectorDlg" aria-labelledby="connectorTitle">
+  <div class="modal-head">
+    <h2 id="connectorTitle">Claude connector</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+  </div>
+  <div class="modal-body" id="connectorBody"></div>
 </dialog>
 
 <dialog class="modal" id="aboutDlg" aria-labelledby="aboutTitle">

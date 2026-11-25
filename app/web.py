@@ -27,6 +27,7 @@ from .cameras import CameraUnavailable, FRAME_TIMEOUT_S
 from .history import usage_key
 from .plugs import GoveeAuthError, GoveeError, suggest_plugs
 from .manager import Manager
+from . import mcp as mcp_server
 from .store import DuplicatePrinter, PrinterStore
 
 log = logging.getLogger(__name__)
@@ -172,6 +173,8 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
         store = PrinterStore(db_path or config.DB_PATH)
         mgr = Manager(store, BambuSSDP(ssdp_ports) if ssdp_ports is not None else None)
         app.state.mgr = mgr
+        app.state.connector = mcp_server.Connector(store)
+        app.state.mcp_tools = mcp_server.Tools(mgr)
         await mgr.start(drivers=start_drivers)
         try:
             yield
@@ -645,6 +648,57 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
 
         return StreamingResponse(stream(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # ------------------------------------------------------------------ Claude connector (read-only MCP)
+    @app.get("/api/connector")
+    async def connector_get(request: Request):
+        return request.app.state.connector.view()
+
+    @app.post("/api/connector")
+    async def connector_create(request: Request):
+        c = request.app.state.connector
+        token = c.create()
+        return {**c.view(), "token": token}
+
+    @app.delete("/api/connector", status_code=204)
+    async def connector_delete(request: Request):
+        request.app.state.connector.disable()
+        return Response(status_code=204)
+
+    MCP_MAX_BODY = 1 << 20
+
+    @app.post("/mcp", include_in_schema=False)
+    @app.post("/mcp/{path_token}", include_in_schema=False)
+    async def mcp_endpoint(request: Request, path_token: Optional[str] = None):
+        c = request.app.state.connector
+        if not c.enabled:
+            raise HTTPException(404, "The Claude connector is off. Turn it on in Settings.")
+        if c.throttled():
+            return JSONResponse({"detail": "too many wrong tokens, try again in a minute"}, status_code=429,
+                                headers={"Retry-After": "60"})
+        if not c.check(c.token_from(request.headers.get("authorization"), request.headers.get("x-api-key"), path_token)):
+            return JSONResponse({"detail": "missing or wrong token"}, status_code=401,
+                                headers={"WWW-Authenticate": 'Bearer realm="pf-printfloor"'})
+        body = await request.body()
+        if len(body) > MCP_MAX_BODY:
+            raise HTTPException(413, "request too large")
+        try:
+            msg = json.loads(body)
+        except ValueError:
+            return JSONResponse(mcp_server._err(None, -32700, "Parse error"), status_code=400)
+        tools, name = request.app.state.mcp_tools, mgr(request).dashboard()["name"]
+        if isinstance(msg, list):
+            out = [r for r in [await mcp_server.handle(m, tools, name) for m in msg[:20]] if r]
+        else:
+            out = await mcp_server.handle(msg, tools, name)
+        if not out:
+            return Response(status_code=202)
+        return JSONResponse(out, headers={"Cache-Control": "no-store"})
+
+    @app.api_route("/mcp", methods=["GET", "DELETE"], include_in_schema=False)
+    @app.api_route("/mcp/{path_token}", methods=["GET", "DELETE"], include_in_schema=False)
+    async def mcp_other(path_token: Optional[str] = None):
+        return Response(status_code=405, headers={"Allow": "POST"})
 
     # ------------------------------------------------------------------ Bambu account (optional)
     @app.get("/api/bambu-account")

@@ -2472,6 +2472,80 @@ function renderAccount(step, msg, box = $("#accountBody"), onDone = null) {
   for (const n of ["email", "password"]) q(n).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
 }
 
+// ---------------------------------------------------------------- Claude connector (read-only MCP)
+const CONNECTOR_GUIDE = "https://github.com/pomeroyfamily/pf-printfloor/blob/main/docs/claude-connector.md";
+const conn = { view: null, token: null, armed: null, msg: "" };
+function copyField(label, value, id) {
+  return `<div class="field"><span id="${id}L">${esc(label)}</span>
+    <div class="copy-row"><input id="${id}" aria-labelledby="${id}L" readonly value="${esc(value)}" spellcheck="false">
+    <button type="button" class="btn" data-copy="${id}">Copy</button></div></div>`;
+}
+function renderConnector() {
+  const v = conn.view, box = $("#connectorBody");
+  const base = `${location.origin}/mcp`;
+  const foot = `<p class="note help-foot">Adding it to Claude, and letting it past Cloudflare Access:
+    <a href="${CONNECTOR_GUIDE}" target="_blank" rel="noopener">Claude connector guide</a></p>`;
+  const intro = `<p class="note">Lets Claude look at this dashboard: printer status, job history, print stats and camera snapshots. Read-only: it can't switch plugs, change settings or control printers.</p>`;
+  const err = conn.msg ? `<p class="form-error" role="alert">${esc(conn.msg)}</p>` : "";
+  if (!v) { box.innerHTML = `${intro}<p class="note">Loading…</p>`; return; }
+  if (!v.enabled) {
+    box.innerHTML = `${intro}
+      <div class="row-actions"><button type="button" class="btn primary" data-conn="on">Turn on</button></div>${err}${foot}`;
+    return;
+  }
+  const arm = (k, label, armedLabel, cls = "") =>
+    `<button type="button" class="btn ${cls}${conn.armed === k ? " armed" : ""}" data-conn="${k}">${conn.armed === k ? armedLabel : label}</button>`;
+  const main = conn.token
+    ? `${copyField("Connector URL", `${base}/${conn.token}`, "connUrl")}
+       <p class="note warn">Copy it now: the token in it isn't shown again. Lost it? Make a new token.</p>
+       <p class="note">In Claude, add a custom connector (Settings → Connectors) and paste this URL. Anyone with the URL can see your printers, so treat it like a password.</p>
+       <details class="conn-alt"><summary>Using a request header instead</summary>
+         <p class="note">If Claude offers <b>Request headers</b> when you add the connector, you can keep the token out of the URL: use <code>${esc(base)}</code> as the URL and add the header <code>Authorization</code> with the value <code>Bearer</code> followed by a space and the token.</p>
+         ${copyField("Token", conn.token, "connToken")}
+       </details>`
+    : kv([["Connector URL", `<code>${esc(base)}/…${esc(v.hint)}</code>`],
+          ["Created", esc(fmtWhen(v.created_at && v.created_at * 1000))],
+          ["Last used", v.last_used_at ? esc(fmtWhen(v.last_used_at * 1000)) : "never"]]);
+  box.innerHTML = `${intro}${main}
+    <div class="row-actions">
+      ${arm("rotate", "New token", "Old one stops working. Make a new one?")}
+      ${arm("off", "Turn off", "Turn off and delete the token?", "danger")}
+    </div>${err}${foot}`;
+}
+async function loadConnector() {
+  try { conn.view = await api("GET", "/api/connector"); conn.msg = ""; }
+  catch (err) { conn.msg = err.message; }
+  renderConnector();
+}
+function setupConnector() {
+  $("#connectorBtn").addEventListener("click", () => {
+    Object.assign(conn, { token: null, armed: null, msg: "" });
+    renderConnector(); $("#connectorDlg").showModal(); loadConnector();
+  });
+  $("#connectorDlg").addEventListener("close", () => { conn.token = null; conn.armed = null; });
+  $("#connectorBody").addEventListener("click", async (e) => {
+    const cp = e.target.closest("[data-copy]");
+    if (cp) {
+      const inp = $("#" + cp.dataset.copy);
+      inp.select();
+      try { await navigator.clipboard.writeText(inp.value); cp.textContent = "Copied"; }
+      catch { document.execCommand?.("copy"); cp.textContent = "Copied"; }
+      setTimeout(() => { cp.textContent = "Copy"; }, 1500);
+      return;
+    }
+    const b = e.target.closest("[data-conn]");
+    if (!b) return;
+    const k = b.dataset.conn;
+    if ((k === "rotate" || k === "off") && conn.armed !== k) { conn.armed = k; renderConnector(); return; }
+    conn.armed = null; conn.msg = "";
+    try {
+      if (k === "off") { await api("DELETE", "/api/connector"); conn.token = null; conn.view = { enabled: false }; }
+      else { const r = await api("POST", "/api/connector"); conn.token = r.token; conn.view = r; }
+    } catch (err) { conn.msg = err.message; }
+    renderConnector();
+  });
+}
+
 // ---------------------------------------------------------------- live updates
 const LIVE_SILENT_MS = 35000;   // the server sends at least a ping every 15 s
 let liveES = null, liveLast = 0, liveDataAt = 0, liveOk = true;
@@ -2728,6 +2802,7 @@ setupLocs();
 setupLayoutDlg();
 setupTags();
 setupNotify();
+setupConnector();
 $("#aboutBtn").addEventListener("click", async () => {
   const body = $("#aboutBody");
   body.innerHTML = `<p class="muted">Loading…</p>`;

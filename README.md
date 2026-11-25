@@ -235,6 +235,9 @@ Everything else is configured in the app (gear menu):
 - **Power button** on a card (only when a plug is assigned): green = on, red = off, yellow = plug not online.
 - **Notifications** (gear menu): add people, paste each one's notification address, and tick which events they
   get, for all printers or per printer. Step by step: [docs/notifications.md](docs/notifications.md).
+- **Claude connector** (gear menu): lets Claude read printer status, job history, stats and camera snapshots, so you
+  can ask it from any chat. Read-only. Step by step: [docs/claude-connector.md](docs/claude-connector.md).
+- **Live** (top right): shows when the page last heard from the dashboard server; double-click it to reload.
 
 Filters, sort, view and grouping are remembered **per browser**. The dashboard name, locations, printers and
 all other settings are **shared** by every browser.
@@ -267,6 +270,8 @@ reach the page can use it.
   `PRINTER_DASH_ALLOWED_HOSTS`. Otherwise the dashboard answers "doesn't answer to the name …". This blocks
   *DNS rebinding*, where a web page you visit points its own domain at the dashboard's address to control it.
 - The U1 "Smooth video" button connects directly to the printer and only works on the home network.
+- The **Claude connector** is off until you turn it on. When on, `/mcp` answers anyone with its token, read-only;
+  behind Cloudflare Access only that path is let through ([docs/claude-connector.md](docs/claude-connector.md)).
 
 What the dashboard does to protect itself:
 - **Secrets stay on the server:** Bambu access codes, the Bambu account token, the Govee API key, notification
@@ -494,6 +499,7 @@ app/
   plugs.py               Govee client, rate budget, power actions and log
   autocycle.py           automatic power cycle scheduler
   notify.py              notifications: events, who gets what, sending through Apprise
+  mcp.py                 Claude connector: read-only MCP server at /mcp, token handling
   cloud/bambu.py         optional Bambu account link (covers, devices, cloud MQTT login)
   drivers/
     base.py              lifecycle, reconnect/backoff, live vs poll mode
