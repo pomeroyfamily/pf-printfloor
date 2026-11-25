@@ -154,3 +154,13 @@ def test_secret_url_and_api_key_header(client):
     assert client.post("/mcp", json=body, headers={"X-API-Key": tok}).status_code == 200
     assert client.post("/mcp/pfp_wrong", json=body).status_code == 401
     assert client.get(f"/mcp/{tok}").status_code == 405
+
+
+def test_location_is_its_name_not_its_id(client):
+    add_printer(client)
+    tok = client.post("/api/connector").json()["token"]
+    locs = client.app.state.mgr.locations()
+    name = next(x["name"] for x in locs["items"] if x["id"] == locs["default"])
+    text = call(client, tok, "list_printers")["content"][0]["text"]
+    assert f'"location":"{name}"' in text and locs["default"] not in text
+    assert f'"location":"{name}"' in call(client, tok, "get_printer", {"printer": "Garage X1C"})["content"][0]["text"]
