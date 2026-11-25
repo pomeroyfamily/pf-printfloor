@@ -87,7 +87,6 @@ button, input, select { font: inherit; color: inherit; }
 .live-read.off { opacity: 1; }
 .live-read.off i { background: var(--paused); }
 .top h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
-.summary { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface);
   border-radius: 999px; padding: 4px 11px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer;
@@ -471,7 +470,7 @@ dialog::backdrop { background: rgb(10 14 18 / .45); }
 .cycle-form { display: grid; gap: 10px; margin: 14px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .cycle-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-/* ------------------------------------------------------------------ location sections */
+/* ------------------------------------------------------------------ lanes (Group) */
 .loc-head { grid-column: 1 / -1; margin: 6px 0 -4px; }
 .loc-head:first-child, .lhead + .loc-head { margin-top: 0; }
 .loc-toggle {
@@ -498,7 +497,7 @@ input.toggle::after {
 }
 input.toggle:checked { background: var(--printing); }
 input.toggle:checked::after { transform: translateX(14px); }
-#locPop .link-btn { font-size: 13px; padding: 2px 4px; }
+#filtersPop .link-btn { font-size: 13px; padding: 2px 4px; }
 
 /* Settings: dashboard + locations */
 .loc-admin { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -526,8 +525,8 @@ input.toggle:checked::after { transform: translateX(14px); }
 /* ------------------------------------------------------------------ list view */
 body[data-view="list"] .grid { display: flex; flex-direction: column; gap: 6px; }
 body[data-view="list"] { --cols: 20px 44px minmax(110px, 1fr) 128px minmax(130px, 1.6fr) 136px 158px minmax(196px, 1.3fr) minmax(96px, .8fr) 176px; }
-body[data-view="list"][data-group-loc="1"] { --cols: 20px 44px minmax(110px, 1fr) 128px minmax(130px, 1.6fr) 136px 158px minmax(196px, 1.3fr) 176px; }
-body[data-group-loc="1"] .lc-location { display: none; }
+body[data-view="list"][data-group-by="location"] { --cols: 20px 44px minmax(110px, 1fr) 128px minmax(130px, 1.6fr) 136px 158px minmax(196px, 1.3fr) 176px; }
+body[data-group-by="location"] .lc-location { display: none; }
 .lhead, .card.row { display: grid; grid-template-columns: var(--cols); gap: 12px; align-items: center; }
 .lhead { padding: 0 14px 0 16px; font-size: 12px; color: var(--muted); font-weight: 600; }
 .lhead button.lc {
@@ -759,3 +758,10 @@ body.fit #liveBanner { position: fixed; top: 12px; left: 12px; z-index: 60; }
 #connectorBody code { font-size: 13px; }
 #connectorBody .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
 .conn-alt { margin: 4px 0 8px; } .conn-alt summary { cursor: pointer; font-size: 14px; color: var(--muted); } .conn-alt[open] summary { margin-bottom: 6px; }
+
+/* Filters / Group */
+.lane-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.loc-toggle .lane-dot { margin-right: 0; }
+.pop-foot { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+.check.radio { grid-template-columns: auto 1fr; }
+.chip-clear { font-size: 13px; padding: 2px 6px; }
