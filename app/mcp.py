@@ -191,9 +191,12 @@ class Tools:
             raise ToolError(f"{query!r} matches more than one printer: {', '.join(v['name'] for v in hit)}.")
         raise ToolError(f"No printer called {query!r}. Printers: {names}.")
 
-    def _summary(self, v: dict) -> dict:
+    def _summary(self, v: dict, loc_names: Optional[dict] = None) -> dict:
+        if loc_names is None:
+            loc_names = {x["id"]: x["name"] for x in self.mgr.locations()["items"]}
+        loc = v.get("location")
         d = {"id": v["id"], "name": v["name"], "model": " ".join(x for x in (v.get("maker"), v.get("model")) if x),
-             **_status_brief(v.get("status")), "location": v.get("location") or None, "tags": v.get("tags") or None,
+             **_status_brief(v.get("status")), "location": loc_names.get(loc, loc) or None, "tags": v.get("tags") or None,
              "power": _power(v.get("power"))}
         return {k: x for k, x in d.items() if x not in (None, "", [], {})}
 
@@ -206,9 +209,10 @@ class Tools:
     # -- tools
     async def list_printers(self, args: dict) -> list[dict]:
         d = self.mgr.dashboard()
+        names = {x["id"]: x["name"] for x in self.mgr.locations()["items"]}
         return _json({"dashboard": d["name"], "time_zone": d.get("tz"),
                       "now": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                      "printers": [self._summary(v) for v in self._views()]})
+                      "printers": [self._summary(v, names) for v in self._views()]})
 
     async def get_printer(self, args: dict) -> list[dict]:
         v = self._find(args.get("printer"))
