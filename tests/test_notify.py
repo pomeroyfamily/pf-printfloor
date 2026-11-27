@@ -276,3 +276,29 @@ def test_failed_alert_carries_the_printers_reason(tmp_path):
     upd(JobState.FAILED, "Stopped by the printer: Corexy home is unstable")
     assert sent and sent[-1][0] == "failed" and sent[-1][1] == "U1-2: Failed"
     assert "Corexy home is unstable" in sent[-1][2]
+
+
+def test_alert_links_open_the_printer():
+    n = notifier()
+    _, body = n.message("x1c", "finished", job="Benchy")
+    assert "http" not in body                                    # no link until an address is set
+    for bad in ("printfloor.example.com", "ftp://x.example.com", "https://user:pw@x.example.com",
+                "https://x.example.com/?a=1", "https://x.example.com/#p", "javascript:alert(1)"):
+        with pytest.raises(ValueError):
+            n.set_link(bad)
+    n.set_link(" https://printfloor.example.com/ ")
+    assert n.view()["link"] == "https://printfloor.example.com"
+    _, body = n.message("x1c", "finished", job="Benchy")
+    assert body.splitlines()[-1] == "https://printfloor.example.com/?printer=x1c"
+    assert n.link_for() == "https://printfloor.example.com/"
+    n.set_link("")
+    assert "http" not in n.message("x1c", "failed", job="Benchy")[1]
+
+
+def test_alert_link_api(client):
+    assert client.put("/api/notify/link", json={"link": "not a url"}).status_code == 400
+    v = client.put("/api/notify/link", json={"link": "https://printfloor.example.com"}).json()
+    assert v["link"] == "https://printfloor.example.com"
+    r = client.put("/api/notify/link", json={"link": "https://printfloor.example.com"},
+                   headers={"Origin": "https://evil.example", "Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 403

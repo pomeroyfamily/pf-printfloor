@@ -101,6 +101,12 @@ The title is the printer and what happened (`X1C: Finished`, `P1-2: Paused`, `U1
 job name, the reason when the printer gives one (e.g. "Filament ran out"), the print time for finished / failed jobs,
 and the dashboard's name.
 
+**Link to the printer.** Under **Link in alerts**, enter the address you open the dashboard at from your phone (e.g.
+`https://printfloor.example.com`, or press **Use this address**). Each alert then ends with a link like
+`https://printfloor.example.com/?printer=…` that opens the dashboard with that printer's Details showing. Most apps
+(ntfy, Telegram, Discord, Pushover, email) make it tappable. Behind Cloudflare Access you sign in first if needed,
+then land on the printer. On iPhone/iPad the link opens in Safari, not the installed app. Leave it empty for no link.
+
 ## When alerts are sent
 
 - **One alert per change.** A printer that stays paused doesn't alert again; it alerts again only if it resumes and

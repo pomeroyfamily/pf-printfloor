@@ -126,6 +126,10 @@ class NotifyDefaults(BaseModel):
     defaults: dict[str, bool]
 
 
+class NotifyLink(BaseModel):
+    link: str = ""
+
+
 class NotifyTest(BaseModel):
     url_id: Optional[str] = Field(default=None, max_length=32)
 
@@ -527,6 +531,15 @@ def create_app(db_path: Optional[Path] = None, start_drivers: bool = True,
     async def notify_defaults(body: NotifyDefaults, request: Request):
         n = mgr(request).notifier
         n.set_defaults(body.defaults)
+        return n.view()
+
+    @app.put("/api/notify/link")
+    async def notify_link(body: NotifyLink, request: Request):
+        n = mgr(request).notifier
+        try:
+            n.set_link(body.link)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
         return n.view()
 
     def _save_person(request: Request, pid: Optional[str], body: NotifyPerson):

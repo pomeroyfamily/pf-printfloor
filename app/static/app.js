@@ -975,6 +975,16 @@ function renderNotifyDlg() {
       <div class="ndefaults">${ev.map((e) => `<label class="check"><input type="checkbox" data-ndef="${esc(e)}"${n.defaults[e] ? " checked" : ""}> ${esc(n.titles[e])}</label>`).join("")}</div>
     </section>
     <section class="nsec">
+      <h3>Link in alerts</h3>
+      <p class="note">Each alert ends with a link that opens the dashboard on that printer. Use the address you open the
+        dashboard at from your phone (not the home-network one, if you also reach it from outside). Leave it empty for no link.</p>
+      <form class="nrow" data-nlink><input name="link" value="${esc(n.link)}" autocomplete="off" spellcheck="false" inputmode="url"
+          placeholder="https://printfloor.example.com" aria-label="Dashboard address for links in alerts">
+        <button type="submit" class="btn">Save</button>
+        ${n.link !== location.origin ? `<button type="button" class="btn" data-nlink-here title="${esc(location.origin)}">Use this address</button>` : ""}</form>
+      ${nMsg("link")}
+    </section>
+    <section class="nsec">
       <h3>People</h3>
       ${n.people.map((p) => {
         const open = state.notifyOpen.has(p.id);
@@ -1052,6 +1062,9 @@ function setupNotify() {
         const added = state.notify.people.find((p) => !before.has(p.id));
         if (added) state.notifyOpen.add(added.id);
         state.notifyMsg._ = null;
+      } else if (f.matches("[data-nlink]")) {
+        state.notify = await api("PUT", "/api/notify/link", { link: f.link.value.trim() });
+        state.notifyMsg.link = nOk(state.notify.link ? "Saved. Alerts will link to the printer." : "Saved. Alerts won't have a link.");
       } else if (f.matches("[data-naddurl]")) {
         const p = notifyPerson(f.closest("[data-person]").dataset.person);
         const url = f.url.value.trim();
@@ -1061,9 +1074,18 @@ function setupNotify() {
       }
       renderNotifyDlg();
     } catch (err) {
-      const pid = f.closest("[data-person]")?.dataset.person || "_";
+      const pid = f.closest("[data-person]")?.dataset.person || (f.matches("[data-nlink]") ? "link" : "_");
+      const typed = f.matches("[data-nlink]") ? f.link.value : null;
       state.notifyMsg[pid] = nErr(err.message); renderNotifyDlg();
+      if (typed !== null) $("#notifyBody [data-nlink]").link.value = typed;      // keep what was typed, to fix it
     }
+  });
+  body.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-nlink-here]");
+    if (!b) return;
+    const f = b.closest("form");
+    f.link.value = location.origin;
+    f.requestSubmit();
   });
   body.addEventListener("click", async (e) => {
     const el = e.target.closest("button");
@@ -2654,6 +2676,18 @@ function applyPrinters(printers, layout) {
   state.printers = printers; renderAll();
   if (!$("#addDlg").open) fillLocSelect();
   loadTags();
+  openLinkedPrinter();
+}
+// A link from an alert (/?printer=<id>) opens that printer's Details, once, and tidies the address bar.
+let linkedPrinter = new URLSearchParams(location.search).get("printer");
+function openLinkedPrinter() {
+  if (!linkedPrinter) return;
+  const id = linkedPrinter;
+  linkedPrinter = null;
+  const u = new URL(location.href);
+  u.searchParams.delete("printer");
+  history.replaceState(null, "", u.pathname + u.search + u.hash);
+  if (state.printers.some((p) => p.id === id)) openDetails(id);
 }
 function connect() {
   const es = new EventSource("/api/events");
