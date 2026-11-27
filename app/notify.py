@@ -23,6 +23,7 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional
+from urllib.parse import quote, urlparse
 
 from .models import ConnState, JobState, PrinterStatus
 
@@ -158,12 +159,32 @@ class Notifier:
                 "all": p.get("all") or {}, "printers": p.get("printers") or {},
             } for p in c["people"]],
             "recent": list(self.recent),
+            "link": c.get("link") or "",
         }
 
     def set_defaults(self, defaults: dict) -> None:
         c = self.config()
         c["defaults"] = {**c["defaults"], **{e: bool(defaults[e]) for e in EVENTS if e in defaults}}
         self._save(c)
+
+    def set_link(self, link: str) -> None:
+        """The dashboard's own address (as people reach it from their phones), for a link in each alert. "" = none."""
+        link = (link or "").strip().rstrip("/")
+        if link:
+            u = urlparse(link)
+            if u.scheme not in ("http", "https") or not u.hostname or u.username or u.password or u.query or u.fragment:
+                raise ValueError("enter the address you open the dashboard at, like https://printfloor.example.com")
+            if len(link) > 200:
+                raise ValueError("that address is too long")
+        c = self.config()
+        c["link"] = link
+        self._save(c)
+
+    def link_for(self, pid: Optional[str] = None) -> Optional[str]:
+        base = self.config().get("link")
+        if not base:
+            return None
+        return f"{base}/?printer={quote(pid, safe='')}" if pid else f"{base}/"
 
     def save_person(self, pid: Optional[str], name: str, urls: list[dict], all_: dict,
                     printers: dict[str, dict], known_printers: set[str]) -> dict:
@@ -312,6 +333,9 @@ class Notifier:
         if event == "offline":
             lines.append(f"Not reachable for {OFFLINE_GRACE_S // 60} minutes while it was printing.")
         lines.append(self.dashboard_name())
+        link = self.link_for(pid)
+        if link:
+            lines.append(link)
         return title, "\n".join(lines)
 
     def emit(self, pid: str, event: str, **kw) -> None:
@@ -361,8 +385,9 @@ class Notifier:
         urls = [u["url"] for u in p.get("urls", []) if url_id in (None, u["id"])]
         if not urls:
             raise ValueError("no address to test")
+        link = self.link_for()
         return await self.send_now(f"{self.dashboard_name()}: test",
-                                   f"Notifications for {p['name']} work.", urls)
+                                   f"Notifications for {p['name']} work." + (f"\n{link}" if link else ""), urls)
 
     async def _worker(self) -> None:
         assert self._queue is not None
