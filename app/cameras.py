@@ -6,7 +6,8 @@ Sources (measured on real printers 2026-10-30, docs/SPEC.md "Camera probe result
                     stock: Moonraker JSON-RPC camera.start_monitor every 5 s + /server/files/camera/monitor.jpg. ~3 fps 1080p
   * Elegoo CC     - SDCP Cmd 386 {"Enable":1} -> VideoUrl (MJPEG :3031); {"Enable":0} when the last viewer leaves. 9.5 fps
   * External URL  - any MJPEG stream or JPEG snapshot URL (per printer setting `camera_url`), overrides built-in.
-  * Bambu X1C     - RTSPS H.264 needs a relay (later): no built-in camera here yet.
+  * Bambu X1C     - RTSPS :322 H.264 (needs "LAN Mode Liveview" on the printer), decoded here with PyAV and
+                    re-sent as JPEG frames, at most RTSP_FPS a second.
 Camera "turn on" messages (U1 start_monitor, CC Cmd 386) were approved by the owner; nothing else is ever sent.
 
 Viewers: an MJPEG stream (popup) holds a viewer while connected; snapshot requests (camera wall) take a short lease.
@@ -342,6 +343,82 @@ class U1Auto(Source):
         self.inner.run(emit, stop)
 
 
+RTSP_FPS = 10            # X1C: frames a second we pass on (the printer sends more; the rest are decoded and dropped)
+RTSP_JPEG_Q = 5          # MJPEG quantizer (2 best .. 31 worst)
+
+
+class BambuRtsps(Source):
+    """X1C: RTSPS H.264 stream -> JPEG frames. The access code goes in the URL, so no error text may contain it."""
+    label = "Bambu X1 camera"
+
+    def _url(self) -> str:
+        code = self.cfg.secrets.get("access_code") or ""
+        port = int(self.cfg.settings.get("camera_port") or 322)
+        return f"rtsps://bblp:{urllib.parse.quote(code, safe='')}@{self.cfg.host}:{port}/streaming/live/1"
+
+    def _clean(self, e: Exception) -> str:
+        msg = str(e)
+        code = self.cfg.secrets.get("access_code") or ""
+        for secret in {code, urllib.parse.quote(code, safe="")} - {""}:
+            msg = msg.replace(secret, "***")
+        return re.sub(r"rtsps?://[^\s'\"]*", lambda m: safe_url(m.group(0)), msg)
+
+    def run(self, emit, stop):
+        try:
+            import av                                    # optional: in the Docker image, not needed by the rest
+        except ImportError:
+            raise CameraUnavailable("the X1 camera needs the PyAV package (included in the Docker image)")
+        from fractions import Fraction
+        if not self.cfg.host:
+            raise CameraUnavailable("the printer's address isn't known")
+        try:
+            container = av.open(self._url(), timeout=(10, 10), options={
+                "rtsp_transport": "tcp", "tls_verify": "0", "timeout": "10000000"})
+        except av.error.HTTPUnauthorizedError:
+            raise CameraUnavailable("the printer refused the access code for its camera")
+        except (av.error.ConnectionRefusedError, ConnectionRefusedError):
+            raise CameraUnavailable('camera port closed: turn on "LAN Mode Liveview" on the printer '
+                                    "(Settings > Network), and restart it if that doesn't help")
+        except Exception as e:  # noqa: BLE001 - re-raise without the URL (it holds the access code)
+            raise ConnectionError(self._clean(e)) from None
+        self._container = container
+        try:
+            stream = container.streams.video[0]
+            stream.thread_type = "AUTO"
+            enc = None
+            gap, due, n = 1.0 / RTSP_FPS, 0.0, 0
+            for packet in container.demux(stream):
+                if stop.is_set():
+                    return
+                for frame in packet.decode():            # every frame must be decoded (H.264 builds on earlier ones)
+                    now = time.monotonic()
+                    if now < due - gap / 4:                # a little early is fine: keeps a steady RTSP_FPS
+                        continue
+                    due = max(due + gap, now)
+                    if enc is None or (enc.width, enc.height) != (frame.width, frame.height):
+                        enc = av.CodecContext.create("mjpeg", "w")
+                        enc.width, enc.height, enc.pix_fmt = frame.width, frame.height, "yuvj420p"
+                        enc.time_base = Fraction(1, RTSP_FPS)
+                        enc.qmin = enc.qmax = RTSP_JPEG_Q
+                    out = frame.reformat(format="yuvj420p")
+                    out.pts, out.time_base, n = n, enc.time_base, n + 1     # the encoder wants its own steady clock
+                    for pkt in enc.encode(out):
+                        emit(bytes(pkt))
+            raise ConnectionError("camera stream ended")
+        except av.error.FFmpegError as e:
+            raise ConnectionError(self._clean(e)) from None
+        finally:
+            self.close()
+
+    def close(self):
+        c, self._container = getattr(self, "_container", None), None
+        if c is not None:
+            try:
+                c.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
 def source_for(cfg: PrinterConfig) -> Optional[Source]:
     url = (cfg.settings.get("camera_url") or "").strip()
     if url:
@@ -356,6 +433,8 @@ def source_for(cfg: PrinterConfig) -> Optional[Source]:
     d = cfg.driver
     if d in ("bambu.p1p", "bambu.a1", "bambu.a1mini"):
         return BambuTls(cfg)
+    if d == "bambu.x1c":
+        return BambuRtsps(cfg)
     if d == "snapmaker.u1":
         return U1Auto(cfg)
     if d.startswith("elegoo.") and cfg.serial:

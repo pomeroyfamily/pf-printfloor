@@ -41,3 +41,4 @@ own license.
 | apprise | BSD-2-Clause | sending notifications |
 | requests, requests-oauthlib, urllib3, certifi | Apache-2.0, ISC, MIT, MPL-2.0 | used by apprise |
 | markdown, PyYAML, click | BSD-3-Clause, MIT, BSD-3-Clause | used by apprise |
+| av (PyAV) | BSD-3-Clause; its wheel bundles FFmpeg (LGPL/GPL parts, incl. x264/x265) and other codec libraries under their own licenses | X1C camera: decoding the H.264 stream |

@@ -79,7 +79,7 @@ things it can switch are a printer's **smart plug** (Govee) and the printer's **
 
 | Printer | Driver | Connection | Camera | Pause reason | Uptime / reboot |
 |---|---|---|---|---|---|
-| [Bambu Lab X1 Carbon](docs/printers/bambu-lab.md) | `bambu.x1c` | Local MQTT, or Bambu cloud | Not yet (needs a relay, see notes) | Yes | Reboot detection |
+| [Bambu Lab X1 Carbon](docs/printers/bambu-lab.md) | `bambu.x1c` | Local MQTT, or Bambu cloud | Yes, ~10 fps video (turn on LAN Mode Liveview) | Yes | Reboot detection |
 | [Bambu Lab P1P](docs/printers/bambu-lab.md) | `bambu.p1p` | Local MQTT, or Bambu cloud | Yes (~0.5–2 fps stills) | Yes | Reboot detection |
 | [Bambu Lab A1 / A1 Mini](docs/printers/bambu-lab.md) | `bambu.a1`, `bambu.a1mini` | Local MQTT, or Bambu cloud | Yes (~0.5–2 fps stills) | Yes | Reboot detection |
 | [Snapmaker U1](docs/printers/snapmaker-u1.md) | `snapmaker.u1` | Moonraker HTTP (local only) | Yes; smooth video with [extended firmware](docs/printers/snapmaker-u1.md#camera-stock-firmware-vs-extended-firmware) | Yes | Real uptime |
@@ -371,8 +371,9 @@ These are deliberate rules or printer quirks that can look odd.
 
 - **P1P / A1 / A1 Mini** cameras send still pictures, about 0.5–2 per second. There is no video stream on these
   models; smooth video needs an external camera.
-- **X1C** sends real video (RTSPS, port 322) that browsers can't play; a relay inside the dashboard is planned.
-  It needs **LAN Mode Liveview** turned on in the printer's network settings (LAN Only Mode is not needed).
+- **X1C** sends real video (RTSPS, port 322) that browsers can't play, so the dashboard turns it into pictures
+  (about 10 a second) while someone is watching. Turn on **LAN Mode Liveview** in the printer's network settings
+  (LAN Only Mode is not needed); restart the printer if the camera still says the port is closed.
 - **U1 stock firmware**: the camera only produces pictures while it is asked every few seconds, ~1–3 fps.
 - **U1 with the [extended firmware](docs/printers/snapmaker-u1.md#camera-stock-firmware-vs-extended-firmware)**
   (paxx12): snapshots plus an optional "Smooth video" (WebRTC, home network only).
@@ -463,7 +464,7 @@ docker exec -i pf-printfloor python - "Centauri Carbon" \
 |---|---|
 | `pause_probe.py` | Dumps everything a U1 or CC reports (use while paused, or before/after a reboot). |
 | `bambu_seq_probe.py` | Prints a Bambu's report counters (reboot detection check). |
-| `x1c_camera_probe.py` | Checks whether the X1C camera stream (RTSPS 322) answers. |
+| `x1c_camera_probe.py` | Checks whether the X1C camera stream (RTSPS 322) answers (if the camera won't show). |
 | `camera_probe.py` | Measures camera frame rates per printer. |
 | `govee_probe.py` | Lists Govee plugs and their state (key typed at a hidden prompt). |
 | `ftp_range_check.py` | Checks Bambu FTPS ranged reads (thumbnail download). |

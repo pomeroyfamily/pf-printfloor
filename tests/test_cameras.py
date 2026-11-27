@@ -102,12 +102,11 @@ def test_centauri_turns_stream_on_and_off(client):
         cc.close(); http.close()
 
 
-def test_external_url_overrides_and_x1c_has_none(client):
+def test_external_url_overrides_the_x1c_builtin(client):
     http = FakeHttpCameras()
     try:
         x1c = add(client, "X1C", "bambu.x1c", serial="00M099000000008", secrets={"access_code": "x"})
-        assert client.get("/api/printers").json()[0]["camera"]["kind"] is None
-        assert client.get(f"/api/printers/{x1c}/camera.jpg").status_code == 404
+        assert client.get("/api/printers").json()[0]["camera"]["kind"] == "builtin"        # RTSPS relay
         bad = client.patch(f"/api/printers/{x1c}", json={"camera_url": "rtsp://cam/stream"})
         assert bad.status_code == 400
         r = client.patch(f"/api/printers/{x1c}", json={"camera_url": f"http://admin:secret@127.0.0.1:{http.port}/mjpeg"})
@@ -124,8 +123,8 @@ def test_external_url_overrides_and_x1c_has_none(client):
         client.patch(f"/api/printers/{x1c}", json={"camera_url": f"http://127.0.0.1:{http.port}/snap.jpg"})
         r = snap(client, x1c)
         assert r.status_code == 200 and size(r.content) == (800, 600)
-        # clearing it -> back to no camera
-        assert client.patch(f"/api/printers/{x1c}", json={"camera_url": ""}).json()["camera"]["kind"] is None
+        # clearing it -> back to the built-in camera
+        assert client.patch(f"/api/printers/{x1c}", json={"camera_url": ""}).json()["camera"]["kind"] == "builtin"
     finally:
         http.close()
 

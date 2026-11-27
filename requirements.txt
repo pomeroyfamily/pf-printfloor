@@ -2,4 +2,4 @@ pydantic>=2.6
 paho-mqtt>=2.0
 fastapi>=0.163.0
 uvicorn>=0.54.0
-apprise>=1.9,<3
+apprise>=1.9,<3av>=19.0; python_version >= "3.12"
