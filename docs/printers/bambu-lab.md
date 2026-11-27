@@ -7,9 +7,11 @@ LAN access code from the printer's screen), or through the Bambu cloud with a li
 
 - **P1P / A1 / A1 Mini:** still pictures, about 0.5–2 per second. These models have no video stream; smooth video
   needs an external camera (Details → Camera → camera URL).
-- **X1 Carbon:** sends real video that browsers can't play directly. Showing it needs a relay in the dashboard,
-  which is planned. It will need **LAN Mode Liveview** turned on in the printer's network settings (LAN Only Mode
-  is not needed).
+- **X1 Carbon:** sends real video (H.264 over RTSPS, port 322) that browsers can't play directly. While someone is
+  watching, the dashboard decodes it and passes on about 10 pictures a second. Needs **LAN Mode Liveview** turned
+  on in the printer's network settings (LAN Only Mode is not needed); if the camera says the port is closed,
+  restart the printer once. Decoding takes some CPU on the server while the camera is open (it stops 10 seconds
+  after the last viewer).
 - While a printer is connected **via cloud**, the camera button is hidden.
 
 ## Access code and address
